@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timedelta
 from ..database import get_supabase
-from ..models import Telemetry
+from ..models import Telemetry, TelemetryCreate
 
 router = APIRouter()
 
@@ -26,6 +26,23 @@ async def get_vehicle_stats(vehicle_id: int, supabase=Depends(get_supabase)):
         
         if not response.data:
             raise HTTPException(status_code=404, detail="Vehicle not found or no data available")
+            
+        return response.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/vehicle-rpm-stats/{vehicle_id}")
+async def get_vehicle_rpm_stats(vehicle_id: int, supabase=Depends(get_supabase)):
+    """
+    Get RPM statistics for a specific vehicle
+    """
+    try:
+        response = supabase.rpc('get_vehicle_rpm_stats', {
+            'v_id': vehicle_id
+        }).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Vehicle not found or no RPM data available")
             
         return response.data[0]
     except Exception as e:

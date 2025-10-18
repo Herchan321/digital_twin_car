@@ -9,6 +9,16 @@ def test_mqtt_publish_subscribe():
     
     received_messages = []
     
+    # Test data including RPM
+    test_data = {
+        "latitude": 48.8566,
+        "longitude": 2.3522,
+        "speed_kmh": 60.0,
+        "battery_pct": 85.5,
+        "temperature": 25.0,
+        "rpm": 2500.0
+    }
+    
     def on_message(client, userdata, msg):
         try:
             payload = json.loads(msg.payload.decode())

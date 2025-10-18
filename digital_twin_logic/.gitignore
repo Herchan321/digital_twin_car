@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.so
+.env
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Mosquitto
+mosquitto/data/*
+!mosquitto/data/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log

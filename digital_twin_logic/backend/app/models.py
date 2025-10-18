@@ -25,6 +25,7 @@ class TelemetryBase(BaseModel):
     speed_kmh: float
     battery_pct: float
     temperature: float
+    rpm: Optional[float] = None
 
 class TelemetryCreate(TelemetryBase):
     pass
@@ -44,4 +45,5 @@ class VehicleState(BaseModel):
     last_speed: float
     last_battery: float
     last_temperature: float
+    last_rpm: Optional[float] = None
     last_update: datetime
