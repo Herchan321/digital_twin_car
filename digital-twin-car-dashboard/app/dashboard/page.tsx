@@ -37,9 +37,15 @@ export default function DashboardPage() {
   const [isConnected, setIsConnected] = useState(true)
   const [isLiveMode, setIsLiveMode] = useState(true)
   const [lastUpdate, setLastUpdate] = useState(new Date())
+  const [isMounted, setIsMounted] = useState(false)
   const [alerts, setAlerts] = useState<Alert[]>([
     { id: 1, message: "Engine temperature slightly elevated", type: "warning", timestamp: "2 min ago" },
   ])
+
+  // Fix hydration mismatch for time display
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!isLiveMode) return
@@ -131,7 +137,9 @@ export default function DashboardPage() {
         </div>
 
         {/* Last update timestamp */}
-        <div className="text-sm text-muted-foreground">Last update: {lastUpdate.toLocaleTimeString()}</div>
+        <div className="text-sm text-muted-foreground">
+          Last update: {isMounted ? lastUpdate.toLocaleTimeString() : '--:--:--'}
+        </div>
 
         {/* Vehicle visualization */}
         <Card className="bg-card border-border border-glow">
