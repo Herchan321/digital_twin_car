@@ -1,7 +1,6 @@
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 export const supabase = createClientComponentClient()
-
 // Types pour les données
 export interface Vehicle {
   id: string
@@ -12,22 +11,22 @@ export interface Vehicle {
 }
 
 export interface Telemetry {
-  id: string
-  vehicle_id: string
-  timestamp: string
+  id: number
+  vehicle_id?: number
   latitude: number
   longitude: number
-  battery_level: number
+  speed_kmh: number
+  battery_pct: number
   temperature: number
-  created_at: string
+  rpm?: number
+  recorded_at: string
 }
-
 // Hooks personnalisés pour Supabase
 export const useVehicles = async () => {
   const { data, error } = await supabase
     .from('vehicles')
     .select('*')
-    .order('created_at', { ascending: false })
+.order('recorded_at', { ascending: false })
   
   if (error) throw error
   return data as Vehicle[]
@@ -53,20 +52,26 @@ export const deleteVehicle = async (id: string) => {
   return true
 }
 
+// Récupérer la télémétrie pour un véhicule
 export const useVehicleTelemetry = async (vehicleId: string) => {
   const { data, error } = await supabase
     .from('telemetry')
     .select('*')
     .eq('vehicle_id', vehicleId)
-    .order('timestamp', { ascending: false })
-    .limit(100)
-  
+    .order('recorded_at', { ascending: true })
+    .limit(100) // tu peux augmenter si tu veux plus de données
+
   if (error) throw error
   return data as Telemetry[]
 }
 
-export const useRealtimeTelemetry = (vehicleId: string, onUpdate: (telemetry: Telemetry) => void) => {
-  supabase
+
+// Realtime subscription pour la télémétrie d’un véhicule
+export const subscribeVehicleTelemetry = (
+  vehicleId: string,
+  onUpdate: (newTelemetry: Telemetry) => void
+) => {
+  return supabase
     .channel('telemetry_updates')
     .on(
       'postgres_changes',
@@ -81,4 +86,24 @@ export const useRealtimeTelemetry = (vehicleId: string, onUpdate: (telemetry: Te
       }
     )
     .subscribe()
+}
+
+
+export const getVehicleTelemetry = async (vehicleId: string) => {
+  const { data, error } = await supabase
+    .from('telemetry')
+    .select('*')
+    .eq('vehicle_id', vehicleId)
+    .order('recorded_at', { ascending: true })
+    .limit(100)
+
+  if (error) throw error
+  return data as Telemetry[]
+}
+const getVehicleStatus = (data: Telemetry) => {
+  if (!data) return "normal"
+
+  if (data.temperature > 100 || data.battery_pct < 11.8) return "critical"
+  if (data.temperature > 95 || data.battery_pct < 12 || (data.rpm && data.rpm > 5000)) return "warning"
+  return "normal"
 }

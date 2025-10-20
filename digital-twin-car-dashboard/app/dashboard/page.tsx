@@ -6,91 +6,97 @@ import { VehicleVisualization } from "@/components/vehicle-visualization"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Gauge, Thermometer, Battery, Zap, Wifi, WifiOff, Play, Pause, AlertTriangle } from "lucide-react"
-
-type VehicleStatus = "normal" | "warning" | "critical"
-
-interface VehicleData {
-  speed: number
-  rpm: number
-  temperature: number
-  battery: number
-  status: VehicleStatus
-}
-
-interface Alert {
-  id: number
-  message: string
-  type: "warning" | "critical"
-  timestamp: string
-}
+import { Wifi, WifiOff, Play, Pause, Zap, Gauge, Thermometer, Battery, AlertTriangle, MapPin } from "lucide-react"
+import { Telemetry, getVehicleTelemetry, subscribeVehicleTelemetry } from "@/lib/supabase"
 
 export default function DashboardPage() {
-  const [vehicleData, setVehicleData] = useState<VehicleData>({
-    speed: 65,
-    rpm: 2500,
-    temperature: 85,
-    battery: 12.6,
-    status: "normal",
-  })
-
-  const [isConnected, setIsConnected] = useState(true)
+  const [telemetry, setTelemetry] = useState<Telemetry[]>([])
   const [isLiveMode, setIsLiveMode] = useState(true)
+  const [isConnected, setIsConnected] = useState(true)
   const [lastUpdate, setLastUpdate] = useState(new Date())
   const [isMounted, setIsMounted] = useState(false)
-  const [alerts, setAlerts] = useState<Alert[]>([
-    { id: 1, message: "Engine temperature slightly elevated", type: "warning", timestamp: "2 min ago" },
-  ])
+  const [alerts, setAlerts] = useState<string[]>([])
+  const [prediction, setPrediction] = useState<string>("No issues detected")
 
-  // Fix hydration mismatch for time display
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
+  const vehicleId = "1" 
+
+  useEffect(() => setIsMounted(true), [])
 
   useEffect(() => {
+    async function loadData() {
+      try {
+        const data = await getVehicleTelemetry(vehicleId)
+        setTelemetry(data)
+        setIsConnected(true)
+        setLastUpdate(new Date())
+      } catch (error) {
+        console.error(error)
+        setIsConnected(false)
+      }
+    }
+
+    loadData()
+
     if (!isLiveMode) return
 
-    const interval = setInterval(() => {
-      setVehicleData((prev) => {
-        const newSpeed = Math.max(0, Math.min(120, prev.speed + (Math.random() - 0.5) * 10))
-        const newRpm = Math.max(800, Math.min(6000, prev.rpm + (Math.random() - 0.5) * 500))
-        const newTemp = Math.max(70, Math.min(110, prev.temperature + (Math.random() - 0.5) * 5))
-        const newBattery = Math.max(11.5, Math.min(14.5, prev.battery + (Math.random() - 0.5) * 0.2))
-
-        let newStatus: VehicleStatus = "normal"
-        if (newTemp > 100 || newBattery < 11.8) {
-          newStatus = "critical"
-        } else if (newTemp > 95 || newBattery < 12.0 || newRpm > 5000) {
-          newStatus = "warning"
-        }
-
-        return {
-          speed: newSpeed,
-          rpm: newRpm,
-          temperature: newTemp,
-          battery: newBattery,
-          status: newStatus,
-        }
-      })
+    const subscription = subscribeVehicleTelemetry(vehicleId, (newData) => {
+      setTelemetry((prev) => [...prev, newData])
       setLastUpdate(new Date())
-    }, 2000)
+    })
 
-    return () => clearInterval(interval)
+    return () => {
+      subscription && subscription.unsubscribe()
+    }
   }, [isLiveMode])
 
+  const latest = telemetry.length > 0 ? telemetry[telemetry.length - 1] : null
+
+  // Badge status
   const getStatusBadge = (value: number, thresholds: { warning: number; critical: number }, reverse = false) => {
     if (reverse) {
-      if (value < thresholds.critical)
-        return <Badge className="bg-destructive text-destructive-foreground">Critical</Badge>
+      if (value < thresholds.critical) return <Badge className="bg-destructive text-destructive-foreground">Critical</Badge>
       if (value < thresholds.warning) return <Badge className="bg-warning text-warning-foreground">Warning</Badge>
       return <Badge className="bg-success text-success-foreground">Normal</Badge>
     } else {
-      if (value > thresholds.critical)
-        return <Badge className="bg-destructive text-destructive-foreground">Critical</Badge>
+      if (value > thresholds.critical) return <Badge className="bg-destructive text-destructive-foreground">Critical</Badge>
       if (value > thresholds.warning) return <Badge className="bg-warning text-warning-foreground">Warning</Badge>
       return <Badge className="bg-success text-success-foreground">Normal</Badge>
     }
   }
+
+useEffect(() => {
+  if (!latest) return
+
+  const newAlerts: string[] = []
+
+  if (latest.temperature > 100) newAlerts.push("⚠️ Température critique !")
+  else if (latest.temperature > 95) newAlerts.push("⚠️ Température élevée.")
+
+  if (latest.battery_pct < 11.8) newAlerts.push("⚠️ Batterie critique !")
+  else if (latest.battery_pct < 12) newAlerts.push("⚠️ Batterie faible.")
+
+  if (latest.rpm && latest.rpm > 5500) newAlerts.push("⚠️ RPM critique !")
+  else if (latest.rpm && latest.rpm > 5000) newAlerts.push("⚠️ RPM élevé.")
+
+  if (latest.speed_kmh > 110) newAlerts.push("⚠️ Vitesse critique !")
+  else if (latest.speed_kmh > 100) newAlerts.push("⚠️ Vitesse élevée.")
+
+  if (newAlerts.length === 0) {
+    setAlerts([" No issues detected"])
+    setPrediction("✅ System stable - no issues predicted")
+  } else {
+    setAlerts(newAlerts)
+
+    if (latest.temperature > 98 && latest.battery_pct < 12)
+      setPrediction("⚠️ Risk of overheating and power loss predicted soon")
+    else if (latest.temperature > 95)
+      setPrediction("⚠️ Possible overheating in the next minutes")
+    else if (latest.battery_pct < 12)
+      setPrediction("⚡ Battery may drop below critical soon")
+    else
+      setPrediction("⚠️ Check vehicle systems soon")
+  }
+}, [latest])
 
   return (
     <DashboardLayout>
@@ -115,12 +121,7 @@ export default function DashboardPage() {
                 </>
               )}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsLiveMode(!isLiveMode)}
-              className="gap-2 border-border"
-            >
+            <Button variant="outline" size="sm" onClick={() => setIsLiveMode(!isLiveMode)}>
               {isLiveMode ? (
                 <>
                   <Pause className="w-4 h-4" />
@@ -136,100 +137,118 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Last update timestamp */}
+        {/* Last update */}
         <div className="text-sm text-muted-foreground">
-          Last update: {isMounted ? lastUpdate.toLocaleTimeString() : '--:--:--'}
+          Last update: {isMounted ? lastUpdate.toLocaleTimeString() : "--:--:--"}
         </div>
 
         {/* Vehicle visualization */}
         <Card className="bg-card border-border border-glow">
           <CardContent className="p-6">
-            <VehicleVisualization data={vehicleData} />
+            {latest && <VehicleVisualization data={latest} />}
           </CardContent>
         </Card>
 
-        {/* Metrics cards */}
+        {/* KPIs cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Speed */}
           <Card className="bg-card border-border border-glow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Speed</CardTitle>
               <Zap className="w-4 h-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">{vehicleData.speed.toFixed(0)}</div>
+              <div className="text-3xl font-bold">{latest ? latest.speed_kmh.toFixed(0) : '--'}</div>
               <p className="text-xs text-muted-foreground mt-1">km/h</p>
-              <div className="mt-2">{getStatusBadge(vehicleData.speed, { warning: 100, critical: 110 })}</div>
+              <div className="mt-2">{latest && getStatusBadge(latest.speed_kmh, { warning: 100, critical: 110 })}</div>
             </CardContent>
           </Card>
 
+          {/* RPM */}
           <Card className="bg-card border-border border-glow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">RPM</CardTitle>
               <Gauge className="w-4 h-4 text-accent" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">{vehicleData.rpm.toFixed(0)}</div>
+              <div className="text-3xl font-bold">{latest && latest.rpm ? latest.rpm.toFixed(0) : '--'}</div>
               <p className="text-xs text-muted-foreground mt-1">revolutions/min</p>
-              <div className="mt-2">{getStatusBadge(vehicleData.rpm, { warning: 5000, critical: 5500 })}</div>
+              <div className="mt-2">{latest && latest.rpm && getStatusBadge(latest.rpm, { warning: 5000, critical: 5500 })}</div>
             </CardContent>
           </Card>
 
+          {/* Temperature */}
           <Card className="bg-card border-border border-glow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Temperature</CardTitle>
               <Thermometer className="w-4 h-4 text-warning" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">{vehicleData.temperature.toFixed(1)}</div>
+              <div className="text-3xl font-bold">{latest ? latest.temperature.toFixed(1) : '--'}</div>
               <p className="text-xs text-muted-foreground mt-1">°C</p>
-              <div className="mt-2">{getStatusBadge(vehicleData.temperature, { warning: 95, critical: 100 })}</div>
+              <div className="mt-2">{latest && getStatusBadge(latest.temperature, { warning: 95, critical: 100 })}</div>
             </CardContent>
           </Card>
 
+          {/* Battery */}
           <Card className="bg-card border-border border-glow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Battery</CardTitle>
               <Battery className="w-4 h-4 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">{vehicleData.battery.toFixed(2)}</div>
+              <div className="text-3xl font-bold">{latest ? latest.battery_pct.toFixed(2) : '--'}</div>
               <p className="text-xs text-muted-foreground mt-1">V</p>
-              <div className="mt-2">{getStatusBadge(vehicleData.battery, { warning: 12.0, critical: 11.8 }, true)}</div>
+              <div className="mt-2">{latest && getStatusBadge(latest.battery_pct, { warning: 12, critical: 11.8 }, true)}</div>
+            </CardContent>
+          </Card>
+
+          {/* 🌍 Position */}
+          <Card className="bg-card border-border border-glow">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Position</CardTitle>
+              <MapPin className="w-4 h-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-semibold">
+                {latest ? `${latest.latitude.toFixed(4)}, ${latest.longitude.toFixed(4)}` : "--"}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">GPS coordinates</p>
             </CardContent>
           </Card>
         </div>
+<div
+  className={`mt-4 p-4 border rounded space-y-2 transition-colors duration-300 ${
+    alerts.length === 0 && prediction.includes("✅")
+      ? "bg-red-50 border-red-300"
+      : "bg-green-50 border-green-300"
+  }`}
+>
+  <h2
+    className={`font-semibold ${
+      alerts.length === 0 && prediction.includes("✅")
+        ? "text-red-800"
+        : "text-green-800"
+    }`}
+  >
+    System Alerts:
+  </h2>
 
-        {/* System alerts */}
-        <Card className="bg-card border-border border-glow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-foreground">
-              <AlertTriangle className="w-5 h-5 text-warning" />
-              System Alerts
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {alerts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No alerts at this time</p>
-            ) : (
-              <div className="space-y-3">
-                {alerts.map((alert) => (
-                  <div
-                    key={alert.id}
-                    className="flex items-start gap-3 p-3 rounded-lg bg-secondary border border-border"
-                  >
-                    <AlertTriangle
-                      className={`w-5 h-5 mt-0.5 ${alert.type === "critical" ? "text-destructive" : "text-warning"}`}
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm text-foreground">{alert.message}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{alert.timestamp}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+
+
+  <div
+    className={`mt-2 text-sm font-medium ${
+      prediction.includes("✅") ? "text-green-700" : "text-red-700"
+    }`}
+  >
+    {prediction}
+  </div>
+</div>
+
+
+
+
+
       </div>
     </DashboardLayout>
   )
