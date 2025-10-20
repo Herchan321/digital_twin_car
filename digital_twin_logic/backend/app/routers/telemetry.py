@@ -1,75 +1,95 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Query, HTTPException
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from pydantic import BaseModel
 from ..database import get_supabase
-from ..models import Telemetry, TelemetryCreate
 
 router = APIRouter()
 
-@router.get("/daily-stats")
-async def get_daily_stats(days: int = 7, supabase=Depends(get_supabase)):
-    try:
-        start_date = (datetime.utcnow() - timedelta(days=days)).isoformat()
-        response = supabase.rpc('get_daily_stats', {
-            'start_date': start_date
-        }).execute()
-        return response.data
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# ------------------------------
+# 📦 MODELS
+# ------------------------------
+class TelemetryIn(BaseModel):
+    vehicle_id: int
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    speed_kmh: Optional[float] = None
+    battery_pct: Optional[float] = None
+    temperature: Optional[float] = None
+    rpm: Optional[float] = None
+    recorded_at: Optional[datetime] = None
 
-@router.get("/vehicle-stats/{vehicle_id}")
-async def get_vehicle_stats(vehicle_id: int, supabase=Depends(get_supabase)):
-    try:
-        response = supabase.rpc('get_vehicle_stats', {
-            'v_id': vehicle_id
-        }).execute()
-        
-        if not response.data:
-            raise HTTPException(status_code=404, detail="Vehicle not found or no data available")
-            
-        return response.data[0]
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/vehicle-rpm-stats/{vehicle_id}")
-async def get_vehicle_rpm_stats(vehicle_id: int, supabase=Depends(get_supabase)):
-    """
-    Get RPM statistics for a specific vehicle
-    """
-    try:
-        response = supabase.rpc('get_vehicle_rpm_stats', {
-            'v_id': vehicle_id
-        }).execute()
-        
-        if not response.data:
-            raise HTTPException(status_code=404, detail="Vehicle not found or no RPM data available")
-            
-        return response.data[0]
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+class TelemetryOut(TelemetryIn):
+    id: int
 
-@router.get("/vehicle-history/{vehicle_id}")
-async def get_vehicle_history(
-    vehicle_id: int,
-    start_time: datetime = None,
-    end_time: datetime = None,
-    interval: str = '1 hour',
-    supabase=Depends(get_supabase)
+
+# ------------------------------
+# 📊 ROUTES
+# ------------------------------
+
+@router.get("/telemetry", response_model=List[TelemetryOut])
+def get_telemetry(
+    vehicle_id: int = Query(..., description="ID du véhicule"),
+    limit: int = Query(50, description="Nombre maximum d’enregistrements à retourner"),
+    from_date: Optional[datetime] = Query(None, description="Filtrer à partir de cette date"),
+    to_date: Optional[datetime] = Query(None, description="Filtrer jusqu’à cette date"),
 ):
+    """📥 Récupérer les données télémétriques filtrées pour un véhicule"""
     try:
-        if not start_time:
-            start_time = datetime.utcnow() - timedelta(days=1)
-        if not end_time:
-            end_time = datetime.utcnow()
+        supabase = get_supabase()
 
-        query = supabase.table('telemetry')\
-            .select('*')\
-            .eq('vehicle_id', vehicle_id)\
-            .gte('recorded_at', start_time.isoformat())\
-            .lte('recorded_at', end_time.isoformat())\
-            .order('recorded_at', desc=True)
-        
-        response = query.execute()
-        return response.data
+        query = supabase.table("telemetry").select("*").eq("vehicle_id", vehicle_id)
+
+        if from_date:
+            query = query.gte("recorded_at", from_date.isoformat())
+        if to_date:
+            query = query.lte("recorded_at", to_date.isoformat())
+
+        res = query.order("recorded_at", desc=True).limit(limit).execute()
+
+        # ✅ Vérification propre des erreurs
+        if hasattr(res, "error") and res.error:
+            raise HTTPException(status_code=500, detail=str(res.error))
+
+        # ✅ Supabase renvoie souvent un dict avec clé 'data'
+        if isinstance(res, dict):
+            data = res.get("data", [])
+        else:
+            data = getattr(res, "data", [])
+
+        if not data:
+            return []  # Pas d'erreur → juste vide
+
+        return data
+
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des données : {e}")
+
+
+@router.get("/telemetry/latest", response_model=TelemetryOut)
+def get_latest(vehicle_id: int = Query(..., description="ID du véhicule")):
+    """📡 Récupérer la dernière donnée de télémétrie pour un véhicule"""
+    try:
+        supabase = get_supabase()
+
+        res = (
+            supabase.table("telemetry")
+            .select("*")
+            .eq("vehicle_id", vehicle_id)
+            .order("recorded_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+
+        if hasattr(res, "error") and res.error:
+            raise HTTPException(status_code=500, detail=str(res.error))
+
+        data = res.data if hasattr(res, "data") else res.get("data", [])
+        if not data:
+            raise HTTPException(status_code=404, detail="Aucune donnée trouvée pour ce véhicule.")
+
+        return data[0]
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération de la dernière donnée : {e}")
