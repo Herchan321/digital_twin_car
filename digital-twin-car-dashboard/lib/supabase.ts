@@ -6,9 +6,15 @@ export const supabase = createClientComponentClient()
 export interface Vehicle {
   id: string
   name: string
-  vin: string
-  created_at: string
-  updated_at: string
+  model: string
+  year: number
+  latitude?: number
+  longitude?: number
+  speed_kmh?: number
+  battery_pct?: number
+  temperature?: number
+  rpm?: number
+  last_updated?: string
 }
 
 export interface Telemetry {
@@ -17,9 +23,10 @@ export interface Telemetry {
   timestamp: string
   latitude: number
   longitude: number
-  battery_level: number
+  speed_kmh: number
+  battery_pct: number
   temperature: number
-  created_at: string
+  rpm?: number
 }
 
 // Hooks personnalisés pour Supabase

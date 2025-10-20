@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import List
 from dotenv import load_dotenv
 from .database import get_supabase
-from .routers import vehicles, telemetry
+from .routers import vehicles, telemetry, predictions
 
 # Load environment variables
 load_dotenv()
@@ -37,7 +37,7 @@ app = FastAPI(
 # CORS middleware setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000"],  # URL de votre frontend Next.js
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,6 +46,7 @@ app.add_middleware(
 # Inclure les routers
 app.include_router(vehicles.router, tags=["vehicles"])
 app.include_router(telemetry.router, prefix="/analytics", tags=["analytics"])
+app.include_router(predictions.router, tags=["predictions"])
 
 # MQTT Client setup
 def on_connect(client, userdata, flags, rc):
@@ -91,3 +92,11 @@ async def on_startup():
     import threading
     mqtt_thread = threading.Thread(target=start_mqtt_client, daemon=True)
     mqtt_thread.start()
+
+# Ajouter cette importation avec vos autres importations
+from .routers import telemetry, vehicles, predictions
+
+# Plus loin dans le code, où vous incluez les routeurs:
+app.include_router(telemetry.router)
+app.include_router(vehicles.router)
+app.include_router(predictions.router)  # Ajoutez cette ligne

@@ -2,9 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Brain, TrendingUp, AlertCircle } from "lucide-react"
-import { Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card"
+import { Badge } from "../../components/ui/badge"
+import { useStore } from "../../lib/store"
+import { 
+  ResponsiveContainer, LineChart, CartesianGrid, 
+  XAxis, YAxis, Tooltip, Legend, Line 
+} from 'recharts';
 
 interface PredictionData {
   time: string
@@ -12,11 +16,27 @@ interface PredictionData {
   predicted: number
 }
 
+interface Prediction {
+  vehicle_id: string
+  timestamp: string
+  estimated_range_km: number
+  battery_health_pct: number
+  next_maintenance_due: string
+  performance_score: number
+  estimated_energy_consumption?: number
+}
+
 export default function PredictionsPage() {
   const [chartData, setChartData] = useState<PredictionData[]>([])
   const [predictedTemp, setPredictedTemp] = useState(92.5)
   const [confidence, setConfidence] = useState(87.3)
   const [anomalyProb, setAnomalyProb] = useState(12.4)
+  const [prediction, setPrediction] = useState<Prediction | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const { selectedVehicle } = useStore()
+
+  const vehicleId = "vehicle1" // Pour simplifier, utilisons un ID fixe
 
   useEffect(() => {
     // Generate initial data
@@ -63,6 +83,36 @@ export default function PredictionsPage() {
     return () => clearInterval(interval)
   }, [])
 
+  useEffect(() => {
+    async function fetchPrediction() {
+      setLoading(true)
+      setError(null)
+
+      try {
+        console.log("Récupération des prédictions pour:", vehicleId)
+        // Ajoutez ce log pour déboguer
+        console.log("Tentative de connexion à:", `/api/predictions?vehicleId=${vehicleId}`);
+        const response = await fetch(`/api/predictions?vehicleId=${vehicleId}`)
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || `Erreur ${response.status}`)
+        }
+
+        const data = await response.json()
+        console.log("Données de prédiction reçues:", data)
+        setPrediction(data)
+      } catch (err) {
+        console.error("Erreur:", err)
+        setError(err instanceof Error ? err.message : "Erreur inconnue")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchPrediction()
+  }, [vehicleId])
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -72,105 +122,124 @@ export default function PredictionsPage() {
           <p className="text-muted-foreground">Advanced forecasting and anomaly detection</p>
         </div>
 
-        {/* Info cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="bg-card border-border border-glow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Predicted Temperature</CardTitle>
-              <TrendingUp className="w-4 h-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">{predictedTemp.toFixed(1)}</div>
-              <p className="text-xs text-muted-foreground mt-1">°C (5 min ahead)</p>
-            </CardContent>
-          </Card>
 
-          <Card className="bg-card border-border border-glow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Model Confidence</CardTitle>
-              <Brain className="w-4 h-4 text-accent" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">{confidence.toFixed(1)}</div>
-              <p className="text-xs text-muted-foreground mt-1">% accuracy</p>
-            </CardContent>
-          </Card>
+        <div className="p-6">
+          <h1 className="text-2xl font-bold mb-6">Prédictions et Analyses</h1>
 
-          <Card className="bg-card border-border border-glow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Anomaly Probability</CardTitle>
-              <AlertCircle className="w-4 h-4 text-warning" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">{anomalyProb.toFixed(1)}</div>
-              <p className="text-xs text-muted-foreground mt-1">% risk</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Prediction chart */}
-        <Card className="bg-card border-border border-glow">
-          <CardHeader>
-            <CardTitle className="text-foreground">Temperature Prediction Model</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Actual vs Predicted engine temperature over time
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[400px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                  <XAxis dataKey="time" stroke="#6b7280" style={{ fontSize: "12px" }} />
-                  <YAxis stroke="#6b7280" style={{ fontSize: "12px" }} domain={[70, 100]} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "rgba(15, 23, 42, 0.9)",
-                      border: "1px solid rgba(59, 130, 246, 0.3)",
-                      borderRadius: "8px",
-                      color: "#f9fafb",
-                    }}
-                  />
-                  <Legend wrapperStyle={{ color: "#9ca3af" }} />
-                  <Line
-                    type="monotone"
-                    dataKey="actual"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    dot={{ fill: "#3b82f6", r: 4 }}
-                    name="Actual Temperature"
-                    connectNulls
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="predicted"
-                    stroke="#06b6d4"
-                    strokeWidth={2}
-                    strokeDasharray="5 5"
-                    dot={{ fill: "#06b6d4", r: 4 }}
-                    name="Predicted Temperature"
-                    connectNulls
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+          {error && (
+            <div className="p-4 mb-4 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-red-700">Erreur: {error}</p>
             </div>
-          </CardContent>
-        </Card>
+          )}
 
-        {/* Model description */}
-        <Card className="bg-card border-border border-glow">
-          <CardHeader>
-            <CardTitle className="text-foreground">About the Prediction Model</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground leading-relaxed">
-              This model predicts engine temperature based on current speed, RPM, and voltage using LSTM (Long
-              Short-Term Memory) algorithms. The neural network analyzes historical patterns and real-time sensor data
-              to forecast temperature trends up to 5 minutes ahead, enabling proactive maintenance and preventing
-              potential overheating issues.
-            </p>
-          </CardContent>
-        </Card>
+          {loading ? (
+            <div className="flex items-center justify-center p-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            </div>
+          ) : prediction ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Autonomie Estimée</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {prediction.estimated_range_km.toFixed(1)} km
+                  </div>
+                  <p className="text-xs text-muted-foreground">Basé sur le niveau de batterie actuel</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Santé de la Batterie</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {prediction.battery_health_pct.toFixed(1)}%
+                  </div>
+                  <Badge
+                    variant={
+                      prediction.battery_health_pct > 80
+                        ? "default"
+                        : prediction.battery_health_pct > 60
+                        ? "secondary"
+                        : "destructive"
+                    }
+                  >
+                    {prediction.battery_health_pct > 80
+                      ? "Excellent"
+                      : prediction.battery_health_pct > 60
+                      ? "Bon"
+                      : "Attention requise"}
+                  </Badge>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Prochaine Maintenance</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {new Date(prediction.next_maintenance_due).toLocaleDateString()}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Basé sur l'utilisation actuelle</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Score de Performance</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {prediction.performance_score.toFixed(1)}/100
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-2">
+                    <div
+                      className={`h-2.5 rounded-full ${
+                        prediction.performance_score > 80
+                          ? "bg-green-600"
+                          : prediction.performance_score > 60
+                          ? "bg-yellow-400"
+                          : "bg-red-600"
+                      }`}
+                      style={{ width: `${prediction.performance_score}%` }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {prediction.estimated_energy_consumption && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Consommation Estimée</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {prediction.estimated_energy_consumption.toFixed(1)} kWh/100km
+                    </div>
+                    <p className="text-xs text-muted-foreground">Basé sur votre style de conduite</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Dernière Mise à Jour</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-md font-medium">
+                    {new Date(prediction.timestamp).toLocaleString()}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <p>Aucune prédiction disponible.</p>
+          )}
+        </div>
       </div>
     </DashboardLayout>
   )

@@ -64,3 +64,18 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
     }
   }
 }));
+
+// Store secondaire
+interface StoreState {
+  selectedVehicle: Vehicle | null;
+  vehicles: Vehicle[];
+  setSelectedVehicle: (vehicle: Vehicle | null) => void;
+  setVehicles: (vehicles: Vehicle[]) => void;
+}
+
+export const useStore = create<StoreState>((set) => ({
+  selectedVehicle: null,
+  vehicles: [],
+  setSelectedVehicle: (vehicle) => set({ selectedVehicle: vehicle }),
+  setVehicles: (vehicles) => set({ vehicles }),
+}));
