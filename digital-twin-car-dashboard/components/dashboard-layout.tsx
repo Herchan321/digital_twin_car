@@ -2,11 +2,13 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Car, LayoutDashboard, TrendingUp, BarChart3, Settings, LogOut, Menu, X } from "lucide-react"
+import { Car, LayoutDashboard, TrendingUp, BarChart3, Settings, LogOut, Menu, X, UserCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/lib/auth-provider"
+import { ProfilePopup } from "@/components/profile-popup"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -16,18 +18,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const { signOut } = useAuth()
 
-  useEffect(() => {
-    const isAuthenticated = localStorage.getItem("isAuthenticated")
-    if (isAuthenticated !== "true") {
-      router.push("/login")
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true)
+      await signOut()
+      // Force a complete page reload to /login
+      window.location.href = "/login"
+    } catch (error) {
+      console.error("Error during logout:", error)
+      setIsLoggingOut(false)
     }
-  }, [router])
-
-  const handleLogout = () => {
-    localStorage.removeItem("isAuthenticated")
-    localStorage.removeItem("rememberMe")
-    router.push("/login")
   }
 
   const navItems = [
@@ -94,15 +98,34 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             })}
           </nav>
 
-          {/* Logout button */}
-          <div className="p-4 border-t border-border">
+          {/* Profile and Logout buttons */}
+          <div className="p-4 border-t border-border space-y-2">
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground bg-transparent"
+              onClick={() => setIsProfileOpen(true)}
+            >
+              <UserCircle className="w-5 h-5" />
+              <span>Profile</span>
+            </Button>
+            
             <Button
               variant="outline"
               className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground bg-transparent"
               onClick={handleLogout}
+              disabled={isLoggingOut}
             >
-              <LogOut className="w-5 h-5" />
-              <span>Logout</span>
+              {isLoggingOut ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  <span>Signing out...</span>
+                </>
+              ) : (
+                <>
+                  <LogOut className="w-5 h-5" />
+                  <span>Logout</span>
+                </>
+              )}
             </Button>
           </div>
         </div>
@@ -120,6 +143,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
+
+      {/* Logout overlay */}
+      {isLoggingOut && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-8 shadow-xl flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-lg font-semibold text-gray-800">Signing out...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Profile Popup */}
+      <ProfilePopup isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
     </div>
   )
 }

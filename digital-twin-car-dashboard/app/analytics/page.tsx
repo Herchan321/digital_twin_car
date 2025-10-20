@@ -18,99 +18,54 @@ type TimeWindow = "5min" | "15min" | "1hour"
 export default function AnalyticsPage() {
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("5min")
   const [isPaused, setIsPaused] = useState(false)
+  const [vehicleId, setVehicleId] = useState<number>(1) // ← id du véhicule à suivre
 
   const [speedData, setSpeedData] = useState<DataPoint[]>([])
   const [rpmData, setRpmData] = useState<DataPoint[]>([])
   const [tempData, setTempData] = useState<DataPoint[]>([])
   const [batteryData, setBatteryData] = useState<DataPoint[]>([])
 
-  const getDataPointsCount = (window: TimeWindow) => {
-    switch (window) {
-      case "5min":
-        return 30
-      case "15min":
-        return 45
-      case "1hour":
-        return 60
-      default:
-        return 30
+  // 🔁 Récupération des données depuis le backend FastAPI
+  const fetchTelemetryData = async () => {
+    try {
+      const res = await fetch(`http://localhost:8000/analytics/telemetry?vehicle_id=${vehicleId}`)
+      if (!res.ok) throw new Error("Erreur lors de la récupération des données")
+      const data = await res.json()
+
+      // 🧭 Conversion du format en DataPoint
+      const formattedSpeed = data.map((d: any) => ({
+        time: new Date(d.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+        value: d.speed_kmh ?? 0,
+      }))
+      const formattedRpm = data.map((d: any) => ({
+        time: new Date(d.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+        value: d.rpm ?? 0,
+      }))
+      const formattedTemp = data.map((d: any) => ({
+        time: new Date(d.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+        value: d.temperature ?? 0,
+      }))
+      const formattedBattery = data.map((d: any) => ({
+        time: new Date(d.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+        value: d.battery_pct ?? 0,
+      }))
+
+      setSpeedData(formattedSpeed)
+      setRpmData(formattedRpm)
+      setTempData(formattedTemp)
+      setBatteryData(formattedBattery)
+    } catch (error) {
+      console.error("Erreur lors du fetch telemetry:", error)
     }
   }
 
-  useEffect(() => {
-    const pointsCount = getDataPointsCount(timeWindow)
-
-    // Initialize data
-    const initData = (baseValue: number, variance: number): DataPoint[] => {
-      const data: DataPoint[] = []
-      const now = new Date()
-
-      for (let i = 0; i < pointsCount; i++) {
-        const time = new Date(now.getTime() - (pointsCount - i) * 2000)
-        data.push({
-          time: time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-          value: Number((baseValue + (Math.random() - 0.5) * variance).toFixed(2)),
-        })
-      }
-      return data
-    }
-
-    setSpeedData(initData(65, 20))
-    setRpmData(initData(2500, 1000))
-    setTempData(initData(85, 10))
-    setBatteryData(initData(12.6, 0.5))
-  }, [timeWindow])
-
+  // 🕒 Rafraîchissement périodique toutes les 3 secondes
   useEffect(() => {
     if (isPaused) return
-
-    const interval = setInterval(() => {
-      const now = new Date()
-      const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
-
-      setSpeedData((prev) => {
-        const newData = [...prev.slice(1)]
-        const lastValue = prev[prev.length - 1]?.value || 65
-        newData.push({
-          time: timeStr,
-          value: Number(Math.max(0, Math.min(120, lastValue + (Math.random() - 0.5) * 10)).toFixed(2)),
-        })
-        return newData
-      })
-
-      setRpmData((prev) => {
-        const newData = [...prev.slice(1)]
-        const lastValue = prev[prev.length - 1]?.value || 2500
-        newData.push({
-          time: timeStr,
-          value: Number(Math.max(800, Math.min(6000, lastValue + (Math.random() - 0.5) * 500)).toFixed(2)),
-        })
-        return newData
-      })
-
-      setTempData((prev) => {
-        const newData = [...prev.slice(1)]
-        const lastValue = prev[prev.length - 1]?.value || 85
-        newData.push({
-          time: timeStr,
-          value: Number(Math.max(70, Math.min(110, lastValue + (Math.random() - 0.5) * 5)).toFixed(2)),
-        })
-        return newData
-      })
-
-      setBatteryData((prev) => {
-        const newData = [...prev.slice(1)]
-        const lastValue = prev[prev.length - 1]?.value || 12.6
-        newData.push({
-          time: timeStr,
-          value: Number(Math.max(11.5, Math.min(14.5, lastValue + (Math.random() - 0.5) * 0.2)).toFixed(2)),
-        })
-        return newData
-      })
-    }, 2000)
-
+    fetchTelemetryData()
+    const interval = setInterval(fetchTelemetryData, 3000)
     return () => clearInterval(interval)
-  }, [isPaused])
+  }, [isPaused, timeWindow, vehicleId])
 
   const ChartCard = ({
     title,
@@ -126,7 +81,7 @@ export default function AnalyticsPage() {
     <Card className="bg-card border-border border-glow">
       <CardHeader>
         <CardTitle className="text-foreground">{title}</CardTitle>
-        <CardDescription className="text-muted-foreground">Real-time monitoring</CardDescription>
+        <CardDescription className="text-muted-foreground">Données télémétriques en temps réel</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-[250px] w-full">
@@ -137,10 +92,6 @@ export default function AnalyticsPage() {
                 dataKey="time"
                 stroke="#6b7280"
                 style={{ fontSize: "10px" }}
-                tickFormatter={(value) => {
-                  const parts = value.split(":")
-                  return `${parts[0]}:${parts[1]}`
-                }}
               />
               <YAxis stroke="#6b7280" style={{ fontSize: "12px" }} />
               <Tooltip
@@ -166,8 +117,8 @@ export default function AnalyticsPage() {
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Real-Time Analytics</h1>
-            <p className="text-muted-foreground">Live vehicle data monitoring and visualization</p>
+            <h1 className="text-3xl font-bold text-foreground mb-2">📊 Real-Time Vehicle Analytics</h1>
+            <p className="text-muted-foreground">Visualisation en direct des données du véhicule</p>
           </div>
           <div className="flex items-center gap-3">
             <Select value={timeWindow} onValueChange={(value) => setTimeWindow(value as TimeWindow)}>
@@ -175,16 +126,16 @@ export default function AnalyticsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="5min">Last 5 min</SelectItem>
-                <SelectItem value="15min">Last 15 min</SelectItem>
-                <SelectItem value="1hour">Last 1 hour</SelectItem>
+                <SelectItem value="5min">Dernières 5 min</SelectItem>
+                <SelectItem value="15min">Dernières 15 min</SelectItem>
+                <SelectItem value="1hour">Dernière heure</SelectItem>
               </SelectContent>
             </Select>
             <Button variant="outline" size="sm" onClick={() => setIsPaused(!isPaused)} className="gap-2 border-border">
               {isPaused ? (
                 <>
                   <Play className="w-4 h-4" />
-                  Resume
+                  Reprendre
                 </>
               ) : (
                 <>
@@ -196,12 +147,12 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Charts grid */}
+        {/* Grille des graphiques */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartCard title="Speed" data={speedData} color="#3b82f6" unit="km/h" />
-          <ChartCard title="RPM" data={rpmData} color="#06b6d4" unit="rpm" />
-          <ChartCard title="Temperature" data={tempData} color="#f59e0b" unit="°C" />
-          <ChartCard title="Battery Voltage" data={batteryData} color="#10b981" unit="V" />
+          <ChartCard title="Vitesse (km/h)" data={speedData} color="#3b82f6" unit="km/h" />
+          <ChartCard title="Régime moteur (RPM)" data={rpmData} color="#06b6d4" unit="rpm" />
+          <ChartCard title="Température moteur" data={tempData} color="#f59e0b" unit="°C" />
+          <ChartCard title="Batterie (%)" data={batteryData} color="#10b981" unit="%" />
         </div>
       </div>
     </DashboardLayout>
