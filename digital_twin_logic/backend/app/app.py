@@ -5,7 +5,7 @@ import asyncio
 
 app = FastAPI()
 
-BROKER = "broker.emqx.io"   # ou l’adresse de ton serveur MQTTX (ex: localhost)
+BROKER = "gounane.ovh@broker.emqx.io:1883"   # ou l’adresse de ton serveur MQTTX (ex: localhost)
 TOPIC = "test/topic"
 
 # --- Tâche asynchrone MQTT ---

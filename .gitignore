@@ -1,0 +1,16 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+
+# Environment files
+digital_twin_logic/.env
+
+# VS Code
+.vscode/
+
+# Node
+node_modules/
+*.log
