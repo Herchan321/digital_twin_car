@@ -25,17 +25,15 @@ export interface Telemetry {
   battery_pct: number
   temperature: number
   rpm?: number
-<<<<<<< HEAD
-=======
   recorded_at: string
->>>>>>> 33e3db9cc2d5563efae57dfa8c86ee5c6078fb14
 }
+
 // Hooks personnalisés pour Supabase
 export const useVehicles = async () => {
   const { data, error } = await supabase
     .from('vehicles')
     .select('*')
-.order('recorded_at', { ascending: false })
+    .order('recorded_at', { ascending: false })
   
   if (error) throw error
   return data as Vehicle[]

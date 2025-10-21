@@ -1,19 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { DashboardLayout } from "@/components/dashboard-layout"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Badge } from "../../components/ui/badge"
-import { useStore } from "../../lib/store"
-import { 
-  ResponsiveContainer, LineChart, CartesianGrid, 
-  XAxis, YAxis, Tooltip, Legend, Line 
-} from 'recharts';
+import { DashboardLayout } from "../../components/dashboard-layout"
 
+// Interface pour les données de prédiction
 interface PredictionData {
   time: string
-  actual: number
-  predicted: number
+  actual: number | null
+  predicted: number | null
 }
 
 interface Prediction {
@@ -34,10 +30,10 @@ export default function PredictionsPage() {
   const [prediction, setPrediction] = useState<Prediction | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { selectedVehicle } = useStore()
-
+  
   const vehicleId = "vehicle1" // Pour simplifier, utilisons un ID fixe
 
+  // Génération de données de graphique
   useEffect(() => {
     // Generate initial data
     const initialData: PredictionData[] = []
@@ -83,35 +79,39 @@ export default function PredictionsPage() {
     return () => clearInterval(interval)
   }, [])
 
+  // Récupération ou simulation des données de prédiction
   useEffect(() => {
     async function fetchPrediction() {
-      setLoading(true)
-      setError(null)
-
+      setLoading(true);
+      setError(null);
+      
       try {
-        console.log("Récupération des prédictions pour:", vehicleId)
-        // Ajoutez ce log pour déboguer
-        console.log("Tentative de connexion à:", `/api/predictions?vehicleId=${vehicleId}`);
-        const response = await fetch(`/api/predictions?vehicleId=${vehicleId}`)
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || `Erreur ${response.status}`)
-        }
-
-        const data = await response.json()
-        console.log("Données de prédiction reçues:", data)
-        setPrediction(data)
+        // Simulation de données au lieu d'appeler l'API
+        const simulatedData = {
+          vehicle_id: "vehicle1",
+          timestamp: new Date().toISOString(),
+          estimated_range_km: 350.5,
+          battery_health_pct: 92.8,
+          next_maintenance_due: new Date(Date.now() + 30*24*60*60*1000).toISOString(),
+          performance_score: 88.7,
+          estimated_energy_consumption: 15.3
+        };
+        
+        // Attente simulée pour imiter une requête API
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        console.log("Données simulées:", simulatedData);
+        setPrediction(simulatedData);
       } catch (err) {
-        console.error("Erreur:", err)
-        setError(err instanceof Error ? err.message : "Erreur inconnue")
+        console.error("Erreur:", err);
+        setError(err instanceof Error ? err.message : "Erreur inconnue");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-
-    fetchPrediction()
-  }, [vehicleId])
+    
+    fetchPrediction();
+  }, [])
 
   return (
     <DashboardLayout>
@@ -121,7 +121,6 @@ export default function PredictionsPage() {
           <h1 className="text-3xl font-bold text-foreground mb-2">AI Predictions</h1>
           <p className="text-muted-foreground">Advanced forecasting and anomaly detection</p>
         </div>
-
 
         <div className="p-6">
           <h1 className="text-2xl font-bold mb-6">Prédictions et Analyses</h1>
@@ -237,10 +236,11 @@ export default function PredictionsPage() {
               </Card>
             </div>
           ) : (
-            <p>Aucune prédiction disponible.</p>
-          )}
+            <p>Aucune donnée de prédiction disponible.</p>
+          )}  
         </div>
       </div>
     </DashboardLayout>
   )
 }
+
