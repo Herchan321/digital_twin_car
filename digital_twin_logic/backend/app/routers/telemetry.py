@@ -19,10 +19,8 @@ class TelemetryIn(BaseModel):
     rpm: Optional[float] = None
     recorded_at: Optional[datetime] = None
 
-
 class TelemetryOut(TelemetryIn):
     id: int
-
 
 # ------------------------------
 # 📊 ROUTES
@@ -65,7 +63,6 @@ def get_telemetry(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des données : {e}")
-
 
 @router.get("/telemetry/latest", response_model=TelemetryOut)
 def get_latest(vehicle_id: int = Query(..., description="ID du véhicule")):
