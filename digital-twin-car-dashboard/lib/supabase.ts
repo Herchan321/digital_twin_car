@@ -101,11 +101,18 @@ export const getVehicleTelemetry = async (vehicleId: string) => {
     .from('telemetry')
     .select('*')
     .eq('vehicle_id', vehicleId)
-    .order('recorded_at', { ascending: true })
+    .order('recorded_at', { ascending: false })  // Plus récentes en premier
     .limit(100)
 
-  if (error) throw error
-  return data as Telemetry[]
+  if (error) {
+    console.error('Erreur Supabase:', error)
+    throw error
+  }
+  
+  console.log('Données Supabase reçues:', data?.length || 0, 'enregistrements')
+  
+  // Inverser pour avoir les plus récentes à la fin (pour cohérence avec le code existant)
+  return (data || []).reverse() as Telemetry[]
 }
 const getVehicleStatus = (data: Telemetry) => {
   if (!data) return "normal"

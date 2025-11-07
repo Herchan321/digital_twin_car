@@ -1,12 +1,12 @@
 # Backend Python dependencies for FastAPI + MQTT + Supabase
-fastapi>=0.95
+fastapi>=0.115.0
 uvicorn[standard]>=0.22
 python-dotenv>=1.0
 supabase>=2.22.0
 httpx>=0.28.1
 paho-mqtt>=1.6
 psycopg2-binary>=2.9.11
-pydantic>=2.12.3
+pydantic>=2.10.0
 
 # API documentation
 annotated-types>=0.7.0

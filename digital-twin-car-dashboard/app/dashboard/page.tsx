@@ -25,12 +25,17 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadData() {
       try {
+        console.log("🔄 Chargement des données pour vehicle_id:", vehicleId)
         const data = await getVehicleTelemetry(vehicleId)
+        console.log("📊 Données reçues:", data.length, "enregistrements")
+        if (data.length > 0) {
+          console.log("📌 Dernière donnée:", data[data.length - 1])
+        }
         setTelemetry(data)
         setIsConnected(true)
         setLastUpdate(new Date())
       } catch (error) {
-        console.error(error)
+        console.error("❌ Erreur:", error)
         setIsConnected(false)
       }
     }
@@ -39,15 +44,22 @@ export default function DashboardPage() {
 
     if (!isLiveMode) return
 
+    // Polling régulier toutes les 3 secondes pour récupérer les nouvelles données
+    const pollInterval = setInterval(() => {
+      loadData()
+    }, 10000)
+
+    // Souscription Realtime pour les mises à jour instantanées (optionnel)
     const subscription = subscribeVehicleTelemetry(vehicleId, (newData) => {
       setTelemetry((prev) => [...prev, newData])
       setLastUpdate(new Date())
     })
 
     return () => {
+      clearInterval(pollInterval)
       subscription && subscription.unsubscribe()
     }
-  }, [isLiveMode])
+  }, [isLiveMode, vehicleId])
 
   const latest = telemetry.length > 0 ? telemetry[telemetry.length - 1] : null
 
@@ -145,7 +157,17 @@ useEffect(() => {
         {/* Vehicle visualization */}
         <Card className="bg-card border-border border-glow">
           <CardContent className="p-6">
-            {latest && <VehicleVisualization data={latest} />}
+            {latest && <VehicleVisualization data={{
+              speed: latest.speed_kmh,
+              battery: latest.battery_pct,
+              temperature: latest.temperature,
+              rpm: latest.rpm ?? 0,
+              status: latest.temperature > 100 || latest.battery_pct < 11.8 || (latest.rpm ?? 0) > 5500 
+                ? "critical" 
+                : latest.temperature > 95 || latest.battery_pct < 12 || (latest.rpm ?? 0) > 5000
+                ? "warning"
+                : "normal"
+            }} />}
           </CardContent>
         </Card>
 
@@ -171,9 +193,9 @@ useEffect(() => {
               <Gauge className="w-4 h-4 text-accent" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{latest && latest.rpm ? latest.rpm.toFixed(0) : '--'}</div>
+              <div className="text-3xl font-bold">{latest && latest.rpm !== null && latest.rpm !== undefined ? latest.rpm.toFixed(0) : '0'}</div>
               <p className="text-xs text-muted-foreground mt-1">revolutions/min</p>
-              <div className="mt-2">{latest && latest.rpm && getStatusBadge(latest.rpm, { warning: 5000, critical: 5500 })}</div>
+              <div className="mt-2">{latest && latest.rpm !== null && latest.rpm !== undefined && getStatusBadge(latest.rpm, { warning: 5000, critical: 5500 })}</div>
             </CardContent>
           </Card>
 
