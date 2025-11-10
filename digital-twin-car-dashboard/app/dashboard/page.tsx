@@ -47,7 +47,7 @@ export default function DashboardPage() {
     // Polling régulier toutes les 3 secondes pour récupérer les nouvelles données
     const pollInterval = setInterval(() => {
       loadData()
-    }, 10000)
+    }, 1000)
 
     // Souscription Realtime pour les mises à jour instantanées (optionnel)
     const subscription = subscribeVehicleTelemetry(vehicleId, (newData) => {

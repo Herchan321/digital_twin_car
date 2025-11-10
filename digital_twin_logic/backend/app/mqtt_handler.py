@@ -15,13 +15,15 @@ MQTT_USERNAME = "chaari"
 MQTT_PASSWORD = "chaari2023"
 MQTT_TOPICS = [
     "DIGITALTWIN/temperature",
-    "DIGITALTWIN/humidity"
+    "DIGITALTWIN/humidity",
+    "DIGITALTWIN/heading"
 ]
 
 # === Variables globales pour stocker les dernières valeurs ===
 latest_data = {
     "temperature": None,
     "humidity": None,
+    "heading": None,
     "vehicle_id": 1,  # ID du véhicule par défaut
     "latitude": 31.6346,   # Coordonnées par défaut (Marrakech)
     "longitude": -8.0027,
@@ -52,11 +54,13 @@ def on_message(client, userdata, msg):
         # Mettre à jour les données selon le topic
         if topic == "DIGITALTWIN/temperature":
             latest_data["temperature"] = float(payload)
-        elif topic == "DIGITALTWIN/humidity":
+        if topic == "DIGITALTWIN/humidity":
             latest_data["humidity"] = float(payload)
+        if topic == "DIGITALTWIN/heading":
+            latest_data["heading"] = float(payload)
         
         # Si on a les deux valeurs, enregistrer dans la BDD
-        if latest_data["temperature"] is not None and latest_data["humidity"] is not None:
+        if latest_data["temperature"] is not None and latest_data["humidity"] is not None and latest_data["heading"] is not None:
             save_to_database()
             
     except Exception as e:
@@ -72,10 +76,10 @@ def save_to_database():
             "vehicle_id": latest_data["vehicle_id"],
             "latitude": latest_data["latitude"],
             "longitude": latest_data["longitude"],
-            "speed_kmh": latest_data["speed_kmh"],
+            "speed_kmh": latest_data["heading"],
             "battery_pct": latest_data["battery_pct"],
             "temperature": latest_data["temperature"],
-            "rpm": latest_data["rpm"],
+            "rpm": latest_data["humidity"],
             "recorded_at": datetime.utcnow().isoformat()
         }
         
@@ -85,7 +89,9 @@ def save_to_database():
         print(f"✅ Données sauvegardées dans la BDD:")
         print(f"   🌡️  Température: {latest_data['temperature']}°C")
         print(f"   💧 Humidité: {latest_data['humidity']}%")
+        print(f"   ⏰ Direction : {telemetry_data['speed_kmh']}")
         print(f"   🚗 Vehicle ID: {latest_data['vehicle_id']}")
+        
         
         # Réinitialiser les valeurs pour le prochain cycle
         latest_data["temperature"] = None
