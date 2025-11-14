@@ -86,7 +86,43 @@ export default function AnalyticsPage() {
         }
       }
 
-      ws.onerror = (e) => console.error('WS error', e)
+      // Avoid passing raw Error objects to console.error (Next intercepts them)
+      ws.onerror = (event) => {
+        try {
+          const info = event && (event as any).message ? (event as any).message : JSON.stringify(event)
+          // use warn to avoid Next treating this as an unhandled error
+          console.warn('WS error:', info)
+        } catch (err) {
+          console.warn('WS error (non-serializable event)')
+        }
+      }
+
+      ws.onclose = (ev) => {
+        console.warn('WebSocket closed', { code: ev?.code, reason: ev?.reason, wasClean: ev?.wasClean })
+        // clear ref so reconnection logic can create a fresh socket
+        if (wsRef.current === ws) wsRef.current = null
+        // simple reconnect after delay if page still mounted and not paused
+        try {
+          if (!isPaused) {
+            setTimeout(() => {
+              // create a new socket by re-running the effect: toggle the vehicleId state to trigger? Instead, open a new socket here
+              try {
+                const url2 = (process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000') + '/ws/telemetry'
+                const newWs = new WebSocket(url2)
+                wsRef.current = newWs
+                newWs.onopen = () => console.log('WebSocket reconnected')
+                newWs.onmessage = ws.onmessage
+                newWs.onerror = ws.onerror
+                newWs.onclose = ws.onclose
+              } catch (e) {
+                console.warn('WS reconnect failed', e)
+              }
+            }, 5000)
+          }
+        } catch (e) {
+          console.warn('Error scheduling WS reconnect', e)
+        }
+      }
     } catch (e) {
       console.error('Cannot open websocket', e)
     }
