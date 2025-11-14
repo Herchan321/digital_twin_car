@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { VehicleVisualization } from "@/components/vehicle-visualization"
+import { VehicleMap3D } from "@/components/vehicle-map-3d"  // Nouveau composant
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Wifi, WifiOff, Play, Pause, Zap, Gauge, Thermometer, Battery, AlertTriangle, MapPin } from "lucide-react"
+import { Wifi, WifiOff, Play, Pause, Zap, Gauge, Thermometer, Battery, AlertTriangle, MapPin, Map } from "lucide-react"
 import { Telemetry, getVehicleTelemetry, subscribeVehicleTelemetry } from "@/lib/supabase"
 
 export default function DashboardPage() {
@@ -17,6 +18,7 @@ export default function DashboardPage() {
   const [isMounted, setIsMounted] = useState(false)
   const [alerts, setAlerts] = useState<string[]>([])
   const [prediction, setPrediction] = useState<string>("No issues detected")
+  const [showMap, setShowMap] = useState(true) // Nouvel état pour afficher/masquer la carte
 
   const vehicleId = "1" 
 
@@ -127,6 +129,13 @@ useEffect(() => {
                 </>
               )}
             </div>
+            
+            {/* Nouveau bouton pour basculer la vue carte */}
+            <Button variant="outline" size="sm" onClick={() => setShowMap(!showMap)}>
+              <Map className="w-4 h-4" />
+              {showMap ? 'Masquer Carte' : 'Afficher Carte'}
+            </Button>
+            
             <Button variant="outline" size="sm" onClick={() => setIsLiveMode(!isLiveMode)}>
               {isLiveMode ? (
                 <>
@@ -148,24 +157,49 @@ useEffect(() => {
           Last update: {isMounted ? lastUpdate.toLocaleTimeString() : "--:--:--"}
         </div>
 
-        {/* Vehicle visualization */}
-        <Card className="bg-card border-border border-glow">
-          <CardContent className="p-6">
-            {latest && <VehicleVisualization data={{
-              speed: latest.speed_kmh,
-              battery: latest.battery_pct,
-              temperature: latest.temperature,
-              rpm: latest.rpm ?? 0,
-              status: latest.temperature > 100 || latest.battery_pct < 11.8 || (latest.rpm ?? 0) > 5500 
-                ? "critical" 
-                : latest.temperature > 95 || latest.battery_pct < 12 || (latest.rpm ?? 0) > 5000
-                ? "warning"
-                : "normal"
-            }} />}
-          </CardContent>
-        </Card>
+        {/* Layout avec carte et visualisation côte à côte */}
+        <div className={`grid gap-6 ${showMap ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+          {/* Visualisation du véhicule existante */}
+          <Card className="bg-card border-border border-glow">
+            <CardHeader>
+              <CardTitle>Visualisation 3D du Véhicule</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              {latest && <VehicleVisualization data={{
+                speed: latest.speed_kmh,
+                battery: latest.battery_pct,
+                temperature: latest.temperature,
+                rpm: latest.rpm ?? 0,
+                status: latest.temperature > 100 || latest.battery_pct < 11.8 || (latest.rpm ?? 0) > 5500 
+                  ? "critical" 
+                  : latest.temperature > 95 || latest.battery_pct < 12 || (latest.rpm ?? 0) > 5000
+                  ? "warning"
+                  : "normal"
+              }} />}
+            </CardContent>
+          </Card>
 
-        {/* KPIs cards */}
+          {/* Nouvelle carte Google Maps 3D */}
+          {showMap && latest && (
+            <Card className="bg-card border-border border-glow">
+              <CardHeader>
+                <CardTitle>Position GPS en Temps Réel</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <VehicleMap3D 
+                  telemetryData={{
+                    speed_kmh: latest.speed_kmh,
+                    temperature: latest.temperature,
+                    battery_pct: latest.battery_pct,
+                    rpm: latest.rpm ?? 0
+                  }}
+                />
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Vos KPIs cards existants */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Speed */}
           <Card className="bg-card border-border border-glow">
