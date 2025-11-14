@@ -1,7 +1,8 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
+import { useVehicleStore } from "@/lib/store"
 
 interface RPMData {
     avg_rpm: number
@@ -11,29 +12,19 @@ interface RPMData {
 }
 
 export function RPMGauge({ vehicleId }: { vehicleId: number }) {
-    const [rpmData, setRPMData] = useState<RPMData | null>(null)
-
+    const telemetry = useVehicleStore((s) => s.telemetry[vehicleId])
     useEffect(() => {
-        const fetchRPMData = async () => {
-            try {
-                const response = await fetch(`/api/telemetry/vehicle-rpm-stats/${vehicleId}`)
-                if (response.ok) {
-                    const data = await response.json()
-                    setRPMData(data)
-                }
-            } catch (error) {
-                console.error('Error fetching RPM data:', error)
-            }
-        }
+        // ensure realtime connection is started
+        try { useVehicleStore.getState().initRealtime() } catch {}
+    }, [])
 
-        fetchRPMData()
-        const interval = setInterval(fetchRPMData, 5000) // Update every 5 seconds
+    if (!telemetry) return null
 
-        return () => clearInterval(interval)
-    }, [vehicleId])
-
-    if (!rpmData) {
-        return null
+    const rpmData = {
+        avg_rpm: telemetry.speed_kmh ?? 0,
+        min_rpm: telemetry.speed_kmh ?? 0,
+        max_rpm: telemetry.speed_kmh ?? 0,
+        current_rpm: telemetry.speed_kmh ?? 0,
     }
 
     // Fonction pour formater les valeurs RPM

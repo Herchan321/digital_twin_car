@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 from .database import get_supabase
 from .routers import vehicles, telemetry, predictions
 from .mqtt_handler import start_mqtt_client, stop_mqtt_client
+from .realtime import manager
+from fastapi import WebSocket, WebSocketDisconnect
 
 # Load environment variables
 load_dotenv()
@@ -40,6 +42,18 @@ app.add_middleware(
 app.include_router(vehicles.router, tags=["vehicles"])
 app.include_router(telemetry.router, prefix="/analytics", tags=["analytics"])
 app.include_router(predictions.router, tags=["predictions"])
+
+
+# WebSocket endpoint pour telemetry
+@app.websocket('/ws/telemetry')
+async def websocket_telemetry_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # keep connection open; clients typically won't send messages
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        await manager.disconnect(websocket)
 
 # === ÉVÉNEMENTS DE DÉMARRAGE ET D'ARRÊT ===
 @app.on_event("startup")

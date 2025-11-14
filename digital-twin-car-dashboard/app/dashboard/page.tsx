@@ -44,19 +44,13 @@ export default function DashboardPage() {
 
     if (!isLiveMode) return
 
-    // Polling régulier toutes les 3 secondes pour récupérer les nouvelles données
-    const pollInterval = setInterval(() => {
-      loadData()
-    }, 10000)
-
-    // Souscription Realtime pour les mises à jour instantanées (optionnel)
+    // Souscription Realtime pour les mises à jour instantanées (par Supabase)
     const subscription = subscribeVehicleTelemetry(vehicleId, (newData) => {
       setTelemetry((prev) => [...prev, newData])
       setLastUpdate(new Date())
     })
 
     return () => {
-      clearInterval(pollInterval)
       subscription && subscription.unsubscribe()
     }
   }, [isLiveMode, vehicleId])
