@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from ..database import get_supabase
+from ..realtime import manager
 from ..models import Vehicle, VehicleCreate, Telemetry, TelemetryCreate, VehicleState
 
 router = APIRouter()
@@ -63,7 +64,18 @@ async def create_telemetry(
             "battery_pct": telemetry.battery_pct,
             "temperature": telemetry.temperature
         }).execute()
-        return response.data[0]
+        inserted = response.data[0]
+        # Broadcast the new telemetry to connected WebSocket clients
+        try:
+            import json
+            await manager.broadcast(json.dumps({
+                "type": "telemetry_insert",
+                "data": inserted
+            }))
+        except Exception:
+            # If broadcasting fails, ignore (do not break insertion)
+            pass
+        return inserted
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

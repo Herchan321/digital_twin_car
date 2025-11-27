@@ -155,4 +155,14 @@
     border: 1px solid rgba(59, 130, 246, 0.3);
     box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
   }
+
+  /* Utility to disable animations/transitions for a specific page/container.
+     Use by adding `no-animations` class to a wrapper element. */
+  .no-animations *,
+  .no-animations *::before,
+  .no-animations *::after {
+    animation: none !important;
+    transition: none !important;
+    transition-duration: 0s !important;
+  }
 }

@@ -21,12 +21,16 @@ export function VehicleMap() {
   // Charger les données et mettre à jour périodiquement
   useEffect(() => {
     fetchVehicles();
-    // Polling toutes les 5 secondes
-    const interval = setInterval(() => {
-      vehicles.forEach((vehicle) => fetchTelemetry(vehicle.id));
-    }, 5000);
-
-    return () => clearInterval(interval);
+    // Initialize realtime updates via WebSocket (shared in the store)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { useVehicleStore } = require('@/lib/store')
+      useVehicleStore.getState().initRealtime()
+    } catch (e) {
+      // fallback: fetch telemetry once per vehicle
+      vehicles.forEach((vehicle) => fetchTelemetry(vehicle.id))
+    }
+    return () => {}
   }, [fetchVehicles, vehicles]);
 
   return (

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -24,48 +24,116 @@ export default function AnalyticsPage() {
   const [rpmData, setRpmData] = useState<DataPoint[]>([])
   const [tempData, setTempData] = useState<DataPoint[]>([])
   const [batteryData, setBatteryData] = useState<DataPoint[]>([])
+  const wsRef = useRef<WebSocket | null>(null)
 
-  // 🔁 Récupération des données depuis le backend FastAPI
-  const fetchTelemetryData = async () => {
-    try {
-      const res = await fetch(`http://localhost:8000/analytics/telemetry?vehicle_id=${vehicleId}`)
-      if (!res.ok) throw new Error("Erreur lors de la récupération des données")
-      const data = await res.json()
-
-      // 🧭 Conversion du format en DataPoint
-      const formattedSpeed = data.map((d: any) => ({
-        time: new Date(d.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-        value: d.speed_kmh ?? 0,
-      }))
-      const formattedRpm = data.map((d: any) => ({
-        time: new Date(d.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-        value: d.rpm ?? 0,
-      }))
-      const formattedTemp = data.map((d: any) => ({
-        time: new Date(d.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-        value: d.temperature ?? 0,
-      }))
-      const formattedBattery = data.map((d: any) => ({
-        time: new Date(d.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-        value: d.battery_pct ?? 0,
-      }))
-
-      setSpeedData(formattedSpeed)
-      setRpmData(formattedRpm)
-      setTempData(formattedTemp)
-      setBatteryData(formattedBattery)
-    } catch (error) {
-      console.error("Erreur lors du fetch telemetry:", error)
-    }
-  }
-
-  // 🕒 Rafraîchissement périodique toutes les 3 secondes
+  // Initial load and WebSocket updates
   useEffect(() => {
-    if (isPaused) return
-    fetchTelemetryData()
-    const interval = setInterval(fetchTelemetryData, 3000)
-    return () => clearInterval(interval)
-  }, [isPaused, timeWindow, vehicleId])
+    let isMounted = true
+
+    const loadInitial = async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/analytics/telemetry?vehicle_id=${vehicleId}`)
+        if (!res.ok) throw new Error("Erreur lors de la récupération des données")
+        const data = await res.json()
+
+        const toPoints = (key: string) =>
+          data.map((d: any) => ({
+            time: new Date(d.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+            value: Number(d[key] ?? 0),
+          }))
+
+        if (!isMounted) return
+        setSpeedData(toPoints('speed_kmh'))
+        setRpmData(toPoints('rpm'))
+        setTempData(toPoints('temperature'))
+        setBatteryData(toPoints('battery_pct'))
+      } catch (error) {
+        console.error("Erreur lors du fetch telemetry:", error)
+      }
+    }
+
+    loadInitial()
+
+    // Open WebSocket connection
+    try {
+      const url = (process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000') + '/ws/telemetry'
+      const ws = new WebSocket(url)
+      wsRef.current = ws
+
+      ws.onopen = () => {
+        console.log('WebSocket connecté')
+      }
+
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data)
+          if (msg?.type === 'telemetry_insert') {
+            const t = msg.data
+            if (t.vehicle_id !== vehicleId) return
+
+            const point = (val: any) => ({
+              time: new Date(t.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+              value: Number(val ?? 0),
+            })
+
+            setSpeedData((prev) => [...prev.slice(-59), point(t.speed_kmh)])
+            setRpmData((prev) => [...prev.slice(-59), point(t.rpm)])
+            setTempData((prev) => [...prev.slice(-59), point(t.temperature)])
+            setBatteryData((prev) => [...prev.slice(-59), point(t.battery_pct)])
+          }
+        } catch (e) {
+          console.error('Invalid WS message', e)
+        }
+      }
+
+      // Avoid passing raw Error objects to console.error (Next intercepts them)
+      ws.onerror = (event) => {
+        try {
+          const info = event && (event as any).message ? (event as any).message : JSON.stringify(event)
+          // use warn to avoid Next treating this as an unhandled error
+          console.warn('WS error:', info)
+        } catch (err) {
+          console.warn('WS error (non-serializable event)')
+        }
+      }
+
+      ws.onclose = (ev) => {
+        console.warn('WebSocket closed', { code: ev?.code, reason: ev?.reason, wasClean: ev?.wasClean })
+        // clear ref so reconnection logic can create a fresh socket
+        if (wsRef.current === ws) wsRef.current = null
+        // simple reconnect after delay if page still mounted and not paused
+        try {
+          if (!isPaused) {
+            setTimeout(() => {
+              // create a new socket by re-running the effect: toggle the vehicleId state to trigger? Instead, open a new socket here
+              try {
+                const url2 = (process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000') + '/ws/telemetry'
+                const newWs = new WebSocket(url2)
+                wsRef.current = newWs
+                newWs.onopen = () => console.log('WebSocket reconnected')
+                newWs.onmessage = ws.onmessage
+                newWs.onerror = ws.onerror
+                newWs.onclose = ws.onclose
+              } catch (e) {
+                console.warn('WS reconnect failed', e)
+              }
+            }, 5000)
+          }
+        } catch (e) {
+          console.warn('Error scheduling WS reconnect', e)
+        }
+      }
+    } catch (e) {
+      console.error('Cannot open websocket', e)
+    }
+
+    return () => {
+      isMounted = false
+      if (wsRef.current) {
+        try { wsRef.current.close() } catch {}
+      }
+    }
+  }, [vehicleId])
 
   const ChartCard = ({
     title,
@@ -102,8 +170,17 @@ export default function AnalyticsPage() {
                   color: "#f9fafb",
                 }}
                 formatter={(value: number) => [`${value.toFixed(2)} ${unit}`, title]}
+                isAnimationActive={false}
               />
-              <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={false} />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={color}
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+                animationDuration={0}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -113,7 +190,7 @@ export default function AnalyticsPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 no-animations">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>

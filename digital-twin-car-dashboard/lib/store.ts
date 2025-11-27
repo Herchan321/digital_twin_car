@@ -26,6 +26,7 @@ interface VehicleStore {
   // Actions
   fetchVehicles: () => Promise<void>;
   fetchTelemetry: (vehicleId: number) => Promise<void>;
+  initRealtime: () => void;
 }
 
 // Création du store
@@ -61,6 +62,49 @@ export const useVehicleStore = create<VehicleStore>((set, get) => ({
       }));
     } catch (error) {
       console.error(`Failed to fetch telemetry for vehicle ${vehicleId}:`, error);
+    }
+  }
+  ,
+
+  initRealtime: () => {
+    // Single shared websocket for real-time updates
+    if (typeof window === 'undefined') return
+    if ((window as any).__VEHICLE_WS_INIT) return
+    try {
+      const base = (process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000')
+      const ws = new WebSocket(`${base}/ws/telemetry`)
+      ws.onopen = () => console.log('vehicle store websocket connected')
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data)
+          if (msg?.type === 'telemetry_insert') {
+            const t = msg.data as Telemetry
+            const vid = Number(t.vehicle_id)
+            // update latest telemetry for vehicle
+            set((state) => ({
+              telemetry: {
+                ...state.telemetry,
+                [vid]: {
+                  vehicle_id: vid,
+                  lat: Number((t.latitude ?? t.lat ?? 0)),
+                  lon: Number((t.longitude ?? t.lon ?? 0)),
+                  speed_kmh: Number(t.speed_kmh ?? 0),
+                  battery_pct: Number(t.battery_pct ?? 0),
+                  recorded_at: t.recorded_at ?? new Date().toISOString(),
+                }
+              }
+            }))
+          }
+        } catch (e) {
+          console.error('Invalid realtime message', e)
+        }
+      }
+      ws.onclose = () => console.log('vehicle store websocket closed')
+      ws.onerror = (e) => console.error('vehicle store websocket error', e)
+      ;(window as any).__VEHICLE_WS = ws
+      ;(window as any).__VEHICLE_WS_INIT = true
+    } catch (e) {
+      console.error('Failed to init realtime websocket', e)
     }
   }
 }));
