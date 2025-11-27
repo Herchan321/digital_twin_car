@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { VehicleVisualization } from "@/components/vehicle-visualization"
+import { VehicleGoogleMap } from "@/components/vehicle-google-map"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -157,17 +157,19 @@ useEffect(() => {
         {/* Vehicle visualization */}
         <Card className="bg-card border-border border-glow">
           <CardContent className="p-6">
-            {latest && <VehicleVisualization data={{
-              speed: latest.speed_kmh,
-              battery: latest.battery_pct,
-              temperature: latest.temperature,
-              rpm: latest.rpm ?? 0,
-              status: latest.temperature > 100 || latest.battery_pct < 11.8 || (latest.rpm ?? 0) > 5500 
+            {latest && <VehicleGoogleMap 
+              latitude={latest.latitude}
+              longitude={latest.longitude}
+              speed={latest.speed_kmh}
+              temperature={latest.temperature}
+              battery={latest.battery_pct}
+              status={latest.temperature > 100 || latest.battery_pct < 11.8 || (latest.rpm ?? 0) > 5500 
                 ? "critical" 
                 : latest.temperature > 95 || latest.battery_pct < 12 || (latest.rpm ?? 0) > 5000
                 ? "warning"
                 : "normal"
-            }} />}
+              }
+            />}
           </CardContent>
         </Card>
 
