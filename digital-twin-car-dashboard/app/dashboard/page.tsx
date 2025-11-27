@@ -58,6 +58,9 @@ export default function DashboardPage() {
   }, [isLiveMode, vehicleId])
 
   const latest = telemetry.length > 0 ? telemetry[telemetry.length - 1] : null
+  
+  // Debug: Afficher les données reçues
+  console.log("Latest data:", latest)
 
   // Badge status
   const getStatusBadge = (value: number, thresholds: { warning: number; critical: number }, reverse = false) => {
@@ -77,17 +80,18 @@ useEffect(() => {
 
   const newAlerts: string[] = []
 
-  if (latest.temperature > 100) newAlerts.push("⚠️ Température critique !")
-  else if (latest.temperature > 95) newAlerts.push("⚠️ Température élevée.")
+  // Utiliser les données OBD-II du mqtt_handler
+  if (latest.coolant_temperature && latest.coolant_temperature > 100) newAlerts.push("⚠️ Température critique !")
+  else if (latest.coolant_temperature && latest.coolant_temperature > 95) newAlerts.push("⚠️ Température élevée.")
 
-  if (latest.battery_pct < 11.8) newAlerts.push("⚠️ Batterie critique !")
-  else if (latest.battery_pct < 12) newAlerts.push("⚠️ Batterie faible.")
+  if (latest.control_module_voltage && latest.control_module_voltage < 11.8) newAlerts.push("⚠️ Batterie critique !")
+  else if (latest.control_module_voltage && latest.control_module_voltage < 12) newAlerts.push("⚠️ Batterie faible.")
 
   if (latest.rpm && latest.rpm > 5500) newAlerts.push("⚠️ RPM critique !")
   else if (latest.rpm && latest.rpm > 5000) newAlerts.push("⚠️ RPM élevé.")
 
-  if (latest.speed_kmh > 110) newAlerts.push("⚠️ Vitesse critique !")
-  else if (latest.speed_kmh > 100) newAlerts.push("⚠️ Vitesse élevée.")
+  if (latest.vehicle_speed && latest.vehicle_speed > 110) newAlerts.push("⚠️ Vitesse critique !")
+  else if (latest.vehicle_speed && latest.vehicle_speed > 100) newAlerts.push("⚠️ Vitesse élevée.")
 
   if (newAlerts.length === 0) {
     setAlerts([" No issues detected"])
@@ -95,11 +99,11 @@ useEffect(() => {
   } else {
     setAlerts(newAlerts)
 
-    if (latest.temperature > 98 && latest.battery_pct < 12)
+    if (latest.coolant_temperature && latest.coolant_temperature > 98 && latest.control_module_voltage && latest.control_module_voltage < 12)
       setPrediction("⚠️ Risk of overheating and power loss predicted soon")
-    else if (latest.temperature > 95)
+    else if (latest.coolant_temperature && latest.coolant_temperature > 95)
       setPrediction("⚠️ Possible overheating in the next minutes")
-    else if (latest.battery_pct < 12)
+    else if (latest.control_module_voltage && latest.control_module_voltage < 12)
       setPrediction("⚡ Battery may drop below critical soon")
     else
       setPrediction("⚠️ Check vehicle systems soon")
@@ -165,22 +169,18 @@ useEffect(() => {
               <CardTitle>Visualisation 3D du Véhicule</CardTitle>
             </CardHeader>
             <CardContent className="p-6">
-              {latest && <VehicleVisualization data={{
-                speed: latest.speed_kmh,
-                battery: latest.battery_pct,
-                temperature: latest.temperature,
-                rpm: latest.rpm ?? 0,
-                status: latest.temperature > 100 || latest.battery_pct < 11.8 || (latest.rpm ?? 0) > 5500 
-                  ? "critical" 
-                  : latest.temperature > 95 || latest.battery_pct < 12 || (latest.rpm ?? 0) > 5000
-                  ? "warning"
-                  : "normal"
-              }} />}
+              <VehicleVisualization data={{
+                speed: latest?.vehicle_speed || 50,
+                battery: latest?.control_module_voltage || 12.5,
+                temperature: latest?.coolant_temperature || 85,
+                rpm: latest?.rpm || 1500,
+                status: "normal"
+              }} />
             </CardContent>
           </Card>
 
-          {/* Nouvelle carte Google Maps 3D */}
-          {showMap && latest && (
+          {/* Carte Google Maps 3D */}
+          {showMap && (
             <Card className="bg-card border-border border-glow">
               <CardHeader>
                 <CardTitle>Position GPS en Temps Réel</CardTitle>
@@ -188,10 +188,10 @@ useEffect(() => {
               <CardContent className="p-0">
                 <VehicleMap3D 
                   telemetryData={{
-                    speed_kmh: latest.speed_kmh,
-                    temperature: latest.temperature,
-                    battery_pct: latest.battery_pct,
-                    rpm: latest.rpm ?? 0
+                    speed_kmh: latest?.vehicle_speed || 50,
+                    temperature: latest?.coolant_temperature || 85,
+                    battery_pct: latest?.control_module_voltage || 12.5,
+                    rpm: latest?.rpm || 1500
                   }}
                 />
               </CardContent>
@@ -199,18 +199,18 @@ useEffect(() => {
           )}
         </div>
 
-        {/* Vos KPIs cards existants */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Speed */}
+        {/* KPIs cards avec données OBD-II du mqtt_handler */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Speed OBD-II */}
           <Card className="bg-card border-border border-glow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Speed</CardTitle>
               <Zap className="w-4 h-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{latest ? latest.speed_kmh.toFixed(0) : '--'}</div>
+              <div className="text-3xl font-bold">{latest?.vehicle_speed ? latest.vehicle_speed.toFixed(0) : '--'}</div>
               <p className="text-xs text-muted-foreground mt-1">km/h</p>
-              <div className="mt-2">{latest && getStatusBadge(latest.speed_kmh, { warning: 100, critical: 110 })}</div>
+              <div className="mt-2">{latest?.vehicle_speed && getStatusBadge(latest.vehicle_speed, { warning: 100, critical: 110 })}</div>
             </CardContent>
           </Card>
 
@@ -227,43 +227,58 @@ useEffect(() => {
             </CardContent>
           </Card>
 
-          {/* Temperature */}
+          {/* Temperature (Coolant) */}
           <Card className="bg-card border-border border-glow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Temperature</CardTitle>
               <Thermometer className="w-4 h-4 text-warning" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{latest ? latest.temperature.toFixed(1) : '--'}</div>
+              <div className="text-3xl font-bold">{latest?.coolant_temperature ? latest.coolant_temperature.toFixed(1) : '--'}</div>
               <p className="text-xs text-muted-foreground mt-1">°C</p>
-              <div className="mt-2">{latest && getStatusBadge(latest.temperature, { warning: 95, critical: 100 })}</div>
+              <div className="mt-2">{latest?.coolant_temperature && getStatusBadge(latest.coolant_temperature, { warning: 95, critical: 100 })}</div>
             </CardContent>
           </Card>
 
-          {/* Battery */}
+          {/* Battery (Control Module Voltage) */}
           <Card className="bg-card border-border border-glow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Battery</CardTitle>
               <Battery className="w-4 h-4 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{latest ? latest.battery_pct.toFixed(2) : '--'}</div>
+              <div className="text-3xl font-bold">{latest?.control_module_voltage ? latest.control_module_voltage.toFixed(2) : '--'}</div>
               <p className="text-xs text-muted-foreground mt-1">V</p>
-              <div className="mt-2">{latest && getStatusBadge(latest.battery_pct, { warning: 12, critical: 11.8 }, true)}</div>
+              <div className="mt-2">{latest?.control_module_voltage && getStatusBadge(latest.control_module_voltage, { warning: 12, critical: 11.8 }, true)}</div>
             </CardContent>
           </Card>
 
-          {/* 🌍 Position */}
+          {/* Engine Load */}
           <Card className="bg-card border-border border-glow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Position</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Engine Load</CardTitle>
+              <Gauge className="w-4 h-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{latest?.engine_load ? latest.engine_load.toFixed(1) : '--'}</div>
+              <p className="text-xs text-muted-foreground mt-1">%</p>
+              <div className="mt-2">{latest?.engine_load && getStatusBadge(latest.engine_load, { warning: 85, critical: 95 })}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Carte Position GPS */}
+        <div className="grid grid-cols-1 gap-4">
+          <Card className="bg-card border-border border-glow">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Position GPS</CardTitle>
               <MapPin className="w-4 h-4 text-primary" />
             </CardHeader>
             <CardContent>
               <div className="text-lg font-semibold">
-                {latest ? `${latest.latitude.toFixed(4)}, ${latest.longitude.toFixed(4)}` : "--"}
+                {latest?.latitude && latest?.longitude ? `${latest.latitude.toFixed(4)}, ${latest.longitude.toFixed(4)}` : "36.8065, 10.1815 (Par défaut)"}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">GPS coordinates</p>
+              <p className="text-xs text-muted-foreground mt-1">Coordonnées GPS</p>
             </CardContent>
           </Card>
         </div>
