@@ -22,8 +22,10 @@ export default function AnalyticsPage() {
 
   const [speedData, setSpeedData] = useState<DataPoint[]>([])
   const [rpmData, setRpmData] = useState<DataPoint[]>([])
-  const [tempData, setTempData] = useState<DataPoint[]>([])
-  const [batteryData, setBatteryData] = useState<DataPoint[]>([])
+  const [coolantTempData, setCoolantTempData] = useState<DataPoint[]>([])
+  const [engineLoadData, setEngineLoadData] = useState<DataPoint[]>([])
+  const [fuelPressureData, setFuelPressureData] = useState<DataPoint[]>([])
+  const [controlVoltageData, setControlVoltageData] = useState<DataPoint[]>([])
   const wsRef = useRef<WebSocket | null>(null)
 
   // Initial load and WebSocket updates
@@ -43,10 +45,12 @@ export default function AnalyticsPage() {
           }))
 
         if (!isMounted) return
-        setSpeedData(toPoints('speed_kmh'))
+        setSpeedData(toPoints('vehicle_speed'))
         setRpmData(toPoints('rpm'))
-        setTempData(toPoints('temperature'))
-        setBatteryData(toPoints('battery_pct'))
+        setCoolantTempData(toPoints('coolant_temperature'))
+        setEngineLoadData(toPoints('engine_load'))
+        setFuelPressureData(toPoints('fuel_rail_pressure'))
+        setControlVoltageData(toPoints('control_module_voltage'))
       } catch (error) {
         console.error("Erreur lors du fetch telemetry:", error)
       }
@@ -76,10 +80,12 @@ export default function AnalyticsPage() {
               value: Number(val ?? 0),
             })
 
-            setSpeedData((prev) => [...prev.slice(-59), point(t.speed_kmh)])
+            setSpeedData((prev) => [...prev.slice(-59), point(t.vehicle_speed)])
             setRpmData((prev) => [...prev.slice(-59), point(t.rpm)])
-            setTempData((prev) => [...prev.slice(-59), point(t.temperature)])
-            setBatteryData((prev) => [...prev.slice(-59), point(t.battery_pct)])
+            setCoolantTempData((prev) => [...prev.slice(-59), point(t.coolant_temperature)])
+            setEngineLoadData((prev) => [...prev.slice(-59), point(t.engine_load)])
+            setFuelPressureData((prev) => [...prev.slice(-59), point(t.fuel_rail_pressure)])
+            setControlVoltageData((prev) => [...prev.slice(-59), point(t.control_module_voltage)])
           }
         } catch (e) {
           console.error('Invalid WS message', e)
@@ -225,11 +231,13 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Grille des graphiques */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartCard title="Vitesse (km/h)" data={speedData} color="#3b82f6" unit="km/h" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          <ChartCard title="Vitesse Véhicule (OBD-II)" data={speedData} color="#3b82f6" unit="km/h" />
           <ChartCard title="Régime moteur (RPM)" data={rpmData} color="#06b6d4" unit="rpm" />
-          <ChartCard title="Température moteur" data={tempData} color="#f59e0b" unit="°C" />
-          <ChartCard title="Batterie (%)" data={batteryData} color="#10b981" unit="%" />
+          <ChartCard title="Température Liquide Refroidissement" data={coolantTempData} color="#f59e0b" unit="°C" />
+          <ChartCard title="Charge Moteur" data={engineLoadData} color="#10b981" unit="%" />
+          <ChartCard title="Pression Rail Carburant" data={fuelPressureData} color="#8b5cf6" unit="kPa" />
+          <ChartCard title="Tension ECU" data={controlVoltageData} color="#f97316" unit="V" />
         </div>
       </div>
     </DashboardLayout>
