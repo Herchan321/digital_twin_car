@@ -11,12 +11,45 @@ router = APIRouter()
 # ------------------------------
 class TelemetryIn(BaseModel):
     vehicle_id: int
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    speed_kmh: Optional[float] = None
-    battery_pct: Optional[float] = None
-    temperature: Optional[float] = None
+    
+    # PIDs essentiels (04-11) - du mqtt_handler
+    engine_load: Optional[float] = None
+    coolant_temperature: Optional[float] = None
+    intake_pressure: Optional[float] = None
     rpm: Optional[float] = None
+    vehicle_speed: Optional[float] = None
+    intake_air_temp: Optional[float] = None
+    maf_airflow: Optional[float] = None
+    throttle_position: Optional[float] = None
+    
+    # PIDs étendus - du mqtt_handler
+    monitor_status: Optional[str] = None
+    oxygen_sensors_present_banks: Optional[int] = None
+    obd_standard: Optional[str] = None
+    time_since_engine_start: Optional[int] = None
+    pids_supported_21_40: Optional[str] = None
+    distance_mil_on: Optional[float] = None
+    fuel_rail_pressure: Optional[float] = None
+    oxygen_sensor1_faer: Optional[float] = None
+    oxygen_sensor1_voltage: Optional[float] = None
+    egr_commanded: Optional[float] = None
+    egr_error: Optional[float] = None
+    warmups_since_code_clear: Optional[int] = None
+    distance_since_code_clear: Optional[float] = None
+    absolute_barometric_pressure: Optional[float] = None
+    pids_supported_41_60: Optional[str] = None
+    monitor_status_drive_cycle: Optional[str] = None
+    control_module_voltage: Optional[float] = None
+    relative_throttle_position: Optional[float] = None
+    ambient_air_temperature: Optional[float] = None
+    abs_throttle_position_d: Optional[float] = None
+    abs_throttle_position_e: Optional[float] = None
+    commanded_throttle_actuator: Optional[float] = None
+    max_faer: Optional[float] = None
+    max_oxy_sensor_voltage: Optional[float] = None
+    max_oxy_sensor_current: Optional[float] = None
+    max_intake_pressure: Optional[float] = None
+    
     recorded_at: Optional[datetime] = None
 
 class TelemetryOut(TelemetryIn):

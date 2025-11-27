@@ -20,6 +20,11 @@ interface Prediction {
   next_maintenance_due: string
   performance_score: number
   estimated_energy_consumption?: number
+  // Nouvelles données OBD-II
+  engine_efficiency?: number
+  coolant_health_score?: number
+  fuel_system_health?: number
+  predicted_failures?: string[]
 }
 
 export default function PredictionsPage() {
@@ -94,7 +99,12 @@ export default function PredictionsPage() {
           battery_health_pct: 92.8,
           next_maintenance_due: new Date(Date.now() + 30*24*60*60*1000).toISOString(),
           performance_score: 88.7,
-          estimated_energy_consumption: 15.3
+          estimated_energy_consumption: 15.3,
+          // Nouvelles données basées sur OBD-II
+          engine_efficiency: 94.2,
+          coolant_health_score: 89.5,
+          fuel_system_health: 91.8,
+          predicted_failures: ["Filtre à air à remplacer dans 2 semaines", "Capteur O2 dégradation légère"]
         };
         
         // Attente simulée pour imiter une requête API
@@ -217,9 +227,79 @@ export default function PredictionsPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      {prediction.estimated_energy_consumption.toFixed(1)} kWh/100km
+                      {prediction.estimated_energy_consumption.toFixed(1)} L/100km
                     </div>
                     <p className="text-xs text-muted-foreground">Basé sur votre style de conduite</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Nouvelles cartes OBD-II */}
+              {prediction.engine_efficiency && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Efficacité Moteur</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {prediction.engine_efficiency.toFixed(1)}%
+                    </div>
+                    <Badge variant={prediction.engine_efficiency > 90 ? "default" : "secondary"}>
+                      {prediction.engine_efficiency > 90 ? "Optimal" : "Bon"}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              )}
+
+              {prediction.coolant_health_score && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Santé Système Refroidissement</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {prediction.coolant_health_score.toFixed(1)}%
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-2">
+                      <div
+                        className={`h-2.5 rounded-full ${
+                          prediction.coolant_health_score > 85
+                            ? "bg-green-600"
+                            : prediction.coolant_health_score > 70
+                            ? "bg-yellow-400"
+                            : "bg-red-600"
+                        }`}
+                        style={{ width: `${prediction.coolant_health_score}%` }}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {prediction.fuel_system_health && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Santé Système Carburant</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {prediction.fuel_system_health.toFixed(1)}%
+                    </div>
+                    <Badge
+                      variant={
+                        prediction.fuel_system_health > 85
+                          ? "default"
+                          : prediction.fuel_system_health > 70
+                          ? "secondary"
+                          : "destructive"
+                      }
+                    >
+                      {prediction.fuel_system_health > 85
+                        ? "Excellent"
+                        : prediction.fuel_system_health > 70
+                        ? "Bon"
+                        : "Attention"}
+                    </Badge>
                   </CardContent>
                 </Card>
               )}
@@ -237,7 +317,26 @@ export default function PredictionsPage() {
             </div>
           ) : (
             <p>Aucune donnée de prédiction disponible.</p>
-          )}  
+          )}
+
+          {/* Section des alertes prédictives */}
+          {prediction?.predicted_failures && prediction.predicted_failures.length > 0 && (
+            <div className="mt-8">
+              <h2 className="text-xl font-bold mb-4">🔮 Alertes Prédictives</h2>
+              <div className="space-y-3">
+                {prediction.predicted_failures.map((failure, index) => (
+                  <Card key={index} className="border-orange-200 bg-orange-50">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="secondary">Prévention</Badge>
+                        <p className="text-sm font-medium">{failure}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </DashboardLayout>
