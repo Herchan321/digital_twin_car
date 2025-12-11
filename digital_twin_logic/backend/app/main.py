@@ -4,9 +4,10 @@ import os
 from dotenv import load_dotenv
 from .database import get_supabase
 from .routers import vehicles, telemetry, predictions
-from .mqtt_handler import start_mqtt_client, stop_mqtt_client
+from .mqtt_handler import start_mqtt_client, stop_mqtt_client, check_vehicle_state, get_latest_data
 from .realtime import manager
 from fastapi import WebSocket, WebSocketDisconnect
+import asyncio
 
 # Load environment variables
 load_dotenv()
@@ -49,11 +50,24 @@ app.include_router(predictions.router, tags=["predictions"])
 async def websocket_telemetry_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
+        # Envoyer immédiatement les dernières données disponibles
+        import json
+        initial_data = get_latest_data()
+        await websocket.send_text(json.dumps(initial_data))
+        
         while True:
             # keep connection open; clients typically won't send messages
             await websocket.receive_text()
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
+
+
+# Endpoint REST pour obtenir les dernières données
+@app.get("/telemetry/latest")
+def get_latest_telemetry():
+    """Retourne les dernières données de télémétrie"""
+    return get_latest_data()
+
 
 # === ÉVÉNEMENTS DE DÉMARRAGE ET D'ARRÊT ===
 @app.on_event("startup")
@@ -61,6 +75,10 @@ async def on_startup():
     """Démarrer le client MQTT au démarrage de l'application"""
     print("🚀 Démarrage de l'application FastAPI...")
     start_mqtt_client()
+    
+    # Démarrer la tâche de vérification de l'état de la voiture
+    asyncio.create_task(check_vehicle_state())
+    
     print("✅ Application FastAPI démarrée avec succès!")
 
 @app.on_event("shutdown")

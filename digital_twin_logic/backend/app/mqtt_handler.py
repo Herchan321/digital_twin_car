@@ -1,12 +1,16 @@
 """
 MQTT Handler pour Digital Twin Car
 Écoute les données OBD-II (ESP32) et les stocke dans Supabase
++ Diffusion en temps réel via WebSocket
 """
 import json
 from datetime import datetime
 from typing import Optional
 import paho.mqtt.client as mqtt
 from .database import get_supabase
+import asyncio
+import time
+from collections import deque
 
 # === CONFIGURATION MQTT ===
 MQTT_BROKER = "109.123.243.44"
@@ -16,8 +20,7 @@ MQTT_PASSWORD = "chaari2023"
 
 # === TOUS LES TOPICS OBD-II ===
 MQTT_TOPICS = [
-    # PIDs essentiels (04-11)
-    "wican/#",  # S'abonner à tous les topics wican
+    "wincan/#",  # S'abonner à tous les topics wincan (configuration MeatPI)
 ]
 
 # === Variables globales pour stocker les dernières valeurs ===
@@ -63,105 +66,204 @@ latest_data = {
     "max_intake_pressure": None
 }
 
-# Mapping des topics wican vers les noms de colonnes de la BDD
+# Buffer circulaire pour l'historique (max 100 points pour les graphiques Analytics)
+telemetry_history = deque(maxlen=100)
+
+# Variables pour détecter l'état de la voiture
+last_message_time = None
+vehicle_state = "offline"  # "offline", "running"
+last_saved_data = None  # Pour garder les dernières valeurs quand la voiture s'éteint
+last_saved_history = []  # Pour garder l'historique en mode offline
+last_save_time = 0  # Pour throttling des sauvegardes BDD (max toutes les 5s)
+
+# Mapping des topics wincan (MeatPI) vers les noms de colonnes de la BDD
+# Format reçu: wincan/vehicle_speed → {"0D-VehicleSpeed":0}
 TOPIC_MAPPING = {
     # PIDs essentiels
-    "wican/engine_load": "engine_load",
-    "wican/coolant_temperature": "coolant_temperature",
-    "wican/intake_pressure": "intake_pressure",
-    "wican/rpm": "rpm",
-    "wican/vehicle_speed": "vehicle_speed",
-    "wican/intake_air_temp": "intake_air_temp",
-    "wican/maf_airflow": "maf_airflow",
-    "wican/throttle_position": "throttle_position",
+    "wincan/engine_load": "engine_load",
+    "wincan/coolant_temperature": "coolant_temperature",
+    "wincan/intake_pressure": "intake_pressure",
+    "wincan/rpm": "rpm",
+    "wincan/vehicle_speed": "vehicle_speed",
+    "wincan/intake_air_temp": "intake_air_temp",
+    "wincan/maf_airflow": "maf_airflow",
+    "wincan/throttle_position": "throttle_position",
     
     # PIDs étendus
-    "wican/monitor_status": "monitor_status",
-    "wican/oxygen_sensors_present_banks": "oxygen_sensors_present_banks",
-    "wican/obd_standard": "obd_standard",
-    "wican/time_since_engine_start": "time_since_engine_start",
-    "wican/pids_supported_21_40": "pids_supported_21_40",
-    "wican/distance_mil_on": "distance_mil_on",
-    "wican/fuel_rail_pressure": "fuel_rail_pressure",
-    "wican/oxygen_sensor1_faer": "oxygen_sensor1_faer",
-    "wican/oxygen_sensor1_voltage": "oxygen_sensor1_voltage",
-    "wican/egr_commanded": "egr_commanded",
-    "wican/egr_error": "egr_error",
-    "wican/warmups_since_code_clear": "warmups_since_code_clear",
-    "wican/distance_since_code_clear": "distance_since_code_clear",
-    "wican/absolute_barometric_pressure": "absolute_barometric_pressure",
-    "wican/pids_supported_41_60": "pids_supported_41_60",
-    "wican/monitor_status_drive_cycle": "monitor_status_drive_cycle",
-    "wican/control_module_voltage": "control_module_voltage",
-    "wican/relative_throttle_position": "relative_throttle_position",
-    "wican/ambient_air_temperature": "ambient_air_temperature",
-    "wican/abs_throttle_position_d": "abs_throttle_position_d",
-    "wican/abs_throttle_position_e": "abs_throttle_position_e",
-    "wican/commanded_throttle_actuator": "commanded_throttle_actuator",
-    "wican/max_faer": "max_faer",
-    "wican/max_oxy_sensor_voltage": "max_oxy_sensor_voltage",
-    "wican/max_oxy_sensor_current": "max_oxy_sensor_current",
-    "wican/max_intake_pressure": "max_intake_pressure"
+    "wincan/monitor_status": "monitor_status",
+    "wincan/oxygen_sensors_present_banks": "oxygen_sensors_present_banks",
+    "wincan/obd_standard": "obd_standard",
+    "wincan/time_since_engine_start": "time_since_engine_start",
+    "wincan/pids_supported_21_40": "pids_supported_21_40",
+    "wincan/distance_mil_on": "distance_mil_on",
+    "wincan/fuel_rail_pressure": "fuel_rail_pressure",
+    "wincan/oxygen_sensor1_faer": "oxygen_sensor1_faer",
+    "wincan/oxygen_sensor1_voltage": "oxygen_sensor1_voltage",
+    "wincan/egr_commanded": "egr_commanded",
+    "wincan/egr_error": "egr_error",
+    "wincan/warmups_since_code_clear": "warmups_since_code_clear",
+    "wincan/distance_since_code_clear": "distance_since_code_clear",
+    "wincan/absolute_barometric_pressure": "absolute_barometric_pressure",
+    "wincan/pids_supported_41_60": "pids_supported_41_60",
+    "wincan/monitor_status_drive_cycle": "monitor_status_drive_cycle",
+    "wincan/control_module_voltage": "control_module_voltage",
+    "wincan/relative_throttle_position": "relative_throttle_position",
+    "wincan/ambient_air_temperature": "ambient_air_temperature",
+    "wincan/abs_throttle_position_d": "abs_throttle_position_d",
+    "wincan/abs_throttle_position_e": "abs_throttle_position_e",
+    "wincan/commanded_throttle_actuator": "commanded_throttle_actuator",
+    "wincan/max_faer": "max_faer",
+    "wincan/max_oxy_sensor_voltage": "max_oxy_sensor_voltage",
+    "wincan/max_oxy_sensor_current": "max_oxy_sensor_current",
+    "wincan/max_intake_pressure": "max_intake_pressure"
 }
 
 def on_connect(client, userdata, flags, rc):
     """Callback lors de la connexion au broker MQTT"""
     if rc == 0:
-        print("✅ Connecté au broker MQTT avec succès!")
-        # S'abonner aux topics
+        print("\n" + "="*70)
+        print("✅ CONNECTÉ AU BROKER MQTT AVEC SUCCÈS!")
+        print("="*70)
         for topic in MQTT_TOPICS:
             client.subscribe(topic)
             print(f"📡 Abonné au topic: {topic}")
+        print("="*70 + "\n")
     else:
         print(f"❌ Échec de connexion MQTT, code: {rc}")
 
 def on_message(client, userdata, msg):
-    """Callback lors de la réception d'un message MQTT"""
+    """✅ CORRIGÉ: Parse le JSON {"PID-Name": value} de MeatPI"""
+    global last_message_time, vehicle_state, last_saved_data, last_save_time
+    
     try:
         topic = msg.topic
         payload = msg.payload.decode('utf-8')
         
-        print(f"📩 Message reçu sur {topic}: {payload}")
+        last_message_time = time.time()
+        vehicle_state = "running"
         
-        # Vérifier si le topic est dans notre mapping
+        print("\n" + "="*70)
+        print(f"📩 MESSAGE MQTT REÇU")
+        print(f"📍 Topic: {topic}")
+        print(f"📦 Payload: {payload}")
+        print("-"*70)
+        
         if topic in TOPIC_MAPPING:
             field_name = TOPIC_MAPPING[topic]
             
-            # Mettre à jour les données
+            # ✅ CORRECTION PRINCIPALE: Parser le JSON d'abord
             try:
-                # Essayer de convertir en float
-                latest_data[field_name] = float(payload)
-            except ValueError:
+                # Essayer de parser comme JSON: {"0D-VehicleSpeed":0}
+                data = json.loads(payload)
+                print(f"🔓 JSON parsé: {data}")
+                
+                if isinstance(data, dict) and len(data) > 0:
+                    # Extraire la première (et unique) paire clé-valeur
+                    json_key = list(data.keys())[0]  # Ex: "0D-VehicleSpeed"
+                    value = data[json_key]  # Ex: 0
+                    
+                    print(f"🔑 Clé JSON: {json_key}")
+                    print(f"💎 Valeur: {value} (type: {type(value).__name__})")
+                    
+                    # Conversion si nécessaire
+                    if isinstance(value, str):
+                        try:
+                            value = float(value) if '.' in value else int(value)
+                            print(f"🔢 Converti en: {value}")
+                        except (ValueError, TypeError):
+                            print(f"📝 Gardé comme texte: {value}")
+                    
+                    latest_data[field_name] = value
+                    print(f"✅ DONNÉE MISE À JOUR: {field_name} = {value}")
+                    print("="*70 + "\n")
+                    
+            except json.JSONDecodeError:
+                # Fallback: valeur brute (si pas JSON)
+                print(f"📝 Pas de JSON, traitement valeur brute")
                 try:
-                    # Essayer de convertir en int
-                    latest_data[field_name] = int(payload)
-                except ValueError:
-                    # Sinon garder comme texte
-                    latest_data[field_name] = payload
-            
-            print(f"✓ Mise à jour: {field_name} = {latest_data[field_name]}")
+                    value = float(payload) if '.' in payload else int(payload)
+                except (ValueError, TypeError):
+                    value = payload
+                
+                latest_data[field_name] = value
+                print(f"✅ MISE À JOUR: {field_name} = {value}")
+                print("="*70 + "\n")
+        else:
+            print(f"⚠️  TOPIC NON MAPPÉ: {topic}")
+            print(f"   Ajoutez: \"{topic}\": \"nom_champ_bdd\",")
+            print("="*70 + "\n")
+            return
         
-        # Vérifier si on a au moins quelques valeurs essentielles avant de sauvegarder
+        # Vérifier données essentielles
         has_essential_data = (
             latest_data["rpm"] is not None or
             latest_data["vehicle_speed"] is not None or
-            latest_data["engine_load"] is not None
+            latest_data["engine_load"] is not None or
+            latest_data["coolant_temperature"] is not None or
+            latest_data["control_module_voltage"] is not None
         )
         
         if has_essential_data:
-            save_to_database()
+            # ✅ AJOUTER AU BUFFER CIRCULAIRE (pour graphiques Analytics)
+            telemetry_point = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "rpm": latest_data["rpm"],
+                "vehicle_speed": latest_data["vehicle_speed"],
+                "coolant_temperature": latest_data["coolant_temperature"],
+                "engine_load": latest_data["engine_load"],
+                "fuel_rail_pressure": latest_data["fuel_rail_pressure"],
+                "control_module_voltage": latest_data["control_module_voltage"]
+            }
+            telemetry_history.append(telemetry_point)
+            print(f"📊 Historique: {len(telemetry_history)} points en buffer")
+            
+            # ✅ THROTTLING: Sauvegarder max toutes les 5s
+            current_time = time.time()
+            if current_time - last_save_time >= 5:
+                print("💾 Sauvegarde en BDD...")
+                save_to_database()
+                last_save_time = current_time
+                last_saved_data = latest_data.copy()
+                last_saved_history = list(telemetry_history)  # Sauvegarder l'historique
+            
+            # Broadcaster immédiatement via WebSocket (avec historique)
+            print("📡 Diffusion WebSocket...")
+            asyncio.create_task(broadcast_telemetry())
             
     except Exception as e:
-        print(f"❌ Erreur lors du traitement du message: {e}")
+        print(f"❌ ERREUR: {e}")
         import traceback
         traceback.print_exc()
+        print("="*70 + "\n")
+
+
+async def broadcast_telemetry():
+    """Diffuse les données de télémétrie + historique via WebSocket"""
+    try:
+        from .realtime import manager
+        
+        telemetry_message = {
+            "type": "telemetry_update",
+            "state": vehicle_state,
+            "data": latest_data.copy(),  # Dernière valeur pour KPIs Dashboard
+            "history": list(telemetry_history),  # Historique complet pour graphiques Analytics
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        await manager.broadcast(json.dumps(telemetry_message))
+        print(f"✅ WebSocket diffusé - {len(manager.active_connections)} clients - {len(telemetry_history)} points historiques - État: {vehicle_state}")
+    except Exception as e:
+        print(f"❌ Erreur WebSocket: {e}")
 
 def save_to_database():
     """Enregistre les données dans la table telemetry de Supabase"""
     try:
         supabase = get_supabase()
         
-        # Préparer les données pour l'insertion (toutes les colonnes)
+        print("\n" + "="*70)
+        print("💾 SAUVEGARDE EN BASE DE DONNÉES")
+        print("-"*70)
+        
         telemetry_data = {
             "vehicle_id": latest_data["vehicle_id"],
             
@@ -206,18 +308,16 @@ def save_to_database():
             "recorded_at": datetime.utcnow().isoformat()
         }
         
-        # Insérer dans Supabase
+        # Afficher données non-null
+        print("📊 Données sauvegardées:")
+        for key, val in telemetry_data.items():
+            if val is not None and key not in ["vehicle_id", "recorded_at"]:
+                print(f"   • {key}: {val}")
+        
         result = supabase.table("telemetry").insert(telemetry_data).execute()
         
-        print(f"✅ Données OBD-II sauvegardées:")
-        if latest_data["rpm"]:
-            print(f"   🔧 RPM: {latest_data['rpm']}")
-        if latest_data["vehicle_speed"]:
-            print(f"   🚗 Vitesse: {latest_data['vehicle_speed']} km/h")
-        if latest_data["engine_load"]:
-            print(f"   ⚙️  Charge moteur: {latest_data['engine_load']}%")
-        if latest_data["fuel_rail_pressure"]:
-            print(f"   ⛽ Pression rail: {latest_data['fuel_rail_pressure']} kPa")
+        print("✅ SAUVEGARDE RÉUSSIE!")
+        print("="*70 + "\n")
         
     except Exception as e:
         print(f"❌ Erreur lors de l'enregistrement en BDD: {e}")
@@ -240,21 +340,27 @@ def start_mqtt_client():
     mqtt_client = mqtt.Client(client_id="FastAPI_DigitalTwin_OBD2")
     mqtt_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
     
-    # Définir les callbacks
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
     mqtt_client.on_disconnect = on_disconnect
     
     try:
-        print(f"🔌 Connexion au broker MQTT {MQTT_BROKER}:{MQTT_PORT}...")
-        mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        print("\n" + "="*70)
+        print("🚀 DÉMARRAGE CLIENT MQTT")
+        print(f"🔌 Broker: {MQTT_BROKER}:{MQTT_PORT}")
+        print(f"👤 User: {MQTT_USERNAME}")
+        print("="*70)
         
-        # Démarrer la boucle dans un thread séparé
+        mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
         mqtt_client.loop_start()
-        print("✅ Client MQTT OBD-II démarré!")
+        
+        print("✅ Client MQTT démarré!")
+        print("="*70 + "\n")
         
     except Exception as e:
-        print(f"❌ Erreur lors du démarrage du client MQTT: {e}")
+        print(f"❌ Erreur MQTT: {e}")
+        import traceback
+        traceback.print_exc()
 
 def stop_mqtt_client():
     """Arrête le client MQTT"""
@@ -263,3 +369,42 @@ def stop_mqtt_client():
         mqtt_client.loop_stop()
         mqtt_client.disconnect()
         print("🛑 Client MQTT arrêté")
+
+
+async def check_vehicle_state():
+    """Vérifie périodiquement l'état de la voiture (offline si pas de message depuis 10s)"""
+    global vehicle_state, last_message_time, last_saved_history
+    from .realtime import manager
+    
+    while True:
+        await asyncio.sleep(5)  # Vérifier toutes les 5 secondes
+        
+        if last_message_time is None:
+            continue
+            
+        time_since_last_message = time.time() - last_message_time
+        
+        # Si pas de message depuis plus de 10 secondes, considérer la voiture offline
+        if time_since_last_message > 10 and vehicle_state == "running":
+            vehicle_state = "offline"
+            print(f"🔴 Voiture OFFLINE - Pas de message depuis {time_since_last_message:.1f}s")
+            
+            # Envoyer l'état offline avec les dernières valeurs ET l'historique complet sauvegardés
+            offline_message = {
+                "type": "telemetry_update",
+                "state": "offline",
+                "data": last_saved_data if last_saved_data else latest_data.copy(),
+                "history": last_saved_history,  # Historique complet avant extinction
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            await manager.broadcast(json.dumps(offline_message))
+
+
+def get_latest_data():
+    """Retourne les dernières données + historique (pour l'endpoint REST API)"""
+    return {
+        "state": vehicle_state,
+        "data": latest_data.copy() if vehicle_state == "running" else (last_saved_data if last_saved_data else latest_data.copy()),
+        "history": list(telemetry_history) if vehicle_state == "running" else last_saved_history,
+        "timestamp": datetime.utcnow().isoformat()
+    }

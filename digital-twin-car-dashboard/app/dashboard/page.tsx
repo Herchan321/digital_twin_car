@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { VehicleVisualization } from "@/components/vehicle-visualization"
 import { VehicleMap3D } from "@/components/vehicle-map-3d"  // Nouveau composant
@@ -8,59 +8,116 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Wifi, WifiOff, Play, Pause, Zap, Gauge, Thermometer, Battery, AlertTriangle, MapPin, Map } from "lucide-react"
-import { Telemetry, getVehicleTelemetry, subscribeVehicleTelemetry } from "@/lib/supabase"
+
+interface TelemetryData {
+  vehicle_id: number
+  engine_load?: number
+  coolant_temperature?: number
+  intake_pressure?: number
+  rpm?: number
+  vehicle_speed?: number
+  intake_air_temp?: number
+  maf_airflow?: number
+  throttle_position?: number
+  fuel_rail_pressure?: number
+  control_module_voltage?: number
+  latitude?: number
+  longitude?: number
+  [key: string]: any
+}
+
+interface WebSocketMessage {
+  type: string
+  state: "offline" | "running"
+  data: TelemetryData
+  timestamp: string
+}
 
 export default function DashboardPage() {
-  const [telemetry, setTelemetry] = useState<Telemetry[]>([])
+  const [telemetry, setTelemetry] = useState<TelemetryData | null>(null)
   const [isLiveMode, setIsLiveMode] = useState(true)
-  const [isConnected, setIsConnected] = useState(true)
+  const [vehicleState, setVehicleState] = useState<"offline" | "running">("offline")
   const [lastUpdate, setLastUpdate] = useState(new Date())
   const [isMounted, setIsMounted] = useState(false)
   const [alerts, setAlerts] = useState<string[]>([])
   const [prediction, setPrediction] = useState<string>("No issues detected")
-  const [showMap, setShowMap] = useState(true) // Nouvel état pour afficher/masquer la carte
+  const [showMap, setShowMap] = useState(true)
+  const wsRef = useRef<WebSocket | null>(null)
 
   const vehicleId = "1" 
 
   useEffect(() => setIsMounted(true), [])
 
   useEffect(() => {
-    async function loadData() {
+    // Charger les données initiales via REST API
+    async function loadInitialData() {
       try {
-        console.log("🔄 Chargement des données pour vehicle_id:", vehicleId)
-        const data = await getVehicleTelemetry(vehicleId)
-        console.log("📊 Données reçues:", data.length, "enregistrements")
-        if (data.length > 0) {
-          console.log("📌 Dernière donnée:", data[data.length - 1])
+        const response = await fetch('http://localhost:8000/telemetry/latest')
+        const data = await response.json()
+        
+        if (data.data) {
+          setTelemetry(data.data)
+          setVehicleState(data.state)
+          setLastUpdate(new Date())
         }
-        setTelemetry(data)
-        setIsConnected(true)
-        setLastUpdate(new Date())
       } catch (error) {
-        console.error("❌ Erreur:", error)
-        setIsConnected(false)
+        console.error("❌ Erreur chargement initial:", error)
       }
     }
 
-    loadData()
+    loadInitialData()
 
     if (!isLiveMode) return
 
-    // Souscription Realtime pour les mises à jour instantanées (par Supabase)
-    const subscription = subscribeVehicleTelemetry(vehicleId, (newData) => {
-      setTelemetry((prev) => [...prev, newData])
-      setLastUpdate(new Date())
-    })
+    // Connexion WebSocket pour les mises à jour en temps réel
+    const wsUrl = (process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000') + '/ws/telemetry'
+    const ws = new WebSocket(wsUrl)
+    wsRef.current = ws
+
+    ws.onopen = () => {
+      console.log('✅ WebSocket connecté')
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const message: WebSocketMessage = JSON.parse(event.data)
+        
+        if (message.type === 'telemetry_update') {
+          setTelemetry(message.data)
+          setVehicleState(message.state)
+          setLastUpdate(new Date())
+          console.log(`📊 Données reçues - État: ${message.state}`, message.data)
+        }
+      } catch (error) {
+        console.error('Erreur parsing WebSocket:', error)
+      }
+    }
+
+    ws.onerror = (error) => {
+      console.warn('⚠️ WebSocket error:', error)
+    }
+
+    ws.onclose = () => {
+      console.log('🔴 WebSocket déconnecté')
+      // Reconnexion automatique après 5 secondes
+      if (isLiveMode) {
+        setTimeout(() => {
+          console.log('🔄 Tentative de reconnexion...')
+        }, 5000)
+      }
+    }
 
     return () => {
-      subscription && subscription.unsubscribe()
+      if (wsRef.current) {
+        wsRef.current.close()
+      }
     }
   }, [isLiveMode, vehicleId])
 
-  const latest = telemetry.length > 0 ? telemetry[telemetry.length - 1] : null
+  const latest = telemetry
   
   // Debug: Afficher les données reçues
-  console.log("Latest data:", latest)
+  console.log("Latest data:", latest, "State:", vehicleState)
 
   // Badge status
   const getStatusBadge = (value: number, thresholds: { warning: number; critical: number }, reverse = false) => {
@@ -121,15 +178,15 @@ useEffect(() => {
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              {isConnected ? (
+              {vehicleState === "running" ? (
                 <>
                   <Wifi className="w-5 h-5 text-success" />
-                  <span className="text-sm text-success font-medium">Connected</span>
+                  <span className="text-sm text-success font-medium">Running</span>
                 </>
               ) : (
                 <>
                   <WifiOff className="w-5 h-5 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground font-medium">Disconnected</span>
+                  <span className="text-sm text-muted-foreground font-medium">Offline</span>
                 </>
               )}
             </div>
@@ -208,8 +265,13 @@ useEffect(() => {
               <Zap className="w-4 h-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{latest?.vehicle_speed ? latest.vehicle_speed.toFixed(0) : '--'}</div>
+              <div className="text-3xl font-bold">
+                {latest?.vehicle_speed !== undefined && latest?.vehicle_speed !== null 
+                  ? latest.vehicle_speed.toFixed(0) 
+                  : '--'}
+              </div>
               <p className="text-xs text-muted-foreground mt-1">km/h</p>
+              {vehicleState === "offline" && <p className="text-xs text-orange-500 mt-1">Last value</p>}
               <div className="mt-2">{latest?.vehicle_speed && getStatusBadge(latest.vehicle_speed, { warning: 100, critical: 110 })}</div>
             </CardContent>
           </Card>
@@ -221,9 +283,14 @@ useEffect(() => {
               <Gauge className="w-4 h-4 text-accent" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{latest && latest.rpm !== null && latest.rpm !== undefined ? latest.rpm.toFixed(0) : '0'}</div>
+              <div className="text-3xl font-bold">
+                {latest?.rpm !== undefined && latest?.rpm !== null 
+                  ? latest.rpm.toFixed(0) 
+                  : '--'}
+              </div>
               <p className="text-xs text-muted-foreground mt-1">revolutions/min</p>
-              <div className="mt-2">{latest && latest.rpm !== null && latest.rpm !== undefined && getStatusBadge(latest.rpm, { warning: 5000, critical: 5500 })}</div>
+              {vehicleState === "offline" && <p className="text-xs text-orange-500 mt-1">Last value</p>}
+              <div className="mt-2">{latest?.rpm && getStatusBadge(latest.rpm, { warning: 5000, critical: 5500 })}</div>
             </CardContent>
           </Card>
 
@@ -234,8 +301,13 @@ useEffect(() => {
               <Thermometer className="w-4 h-4 text-warning" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{latest?.coolant_temperature ? latest.coolant_temperature.toFixed(1) : '--'}</div>
+              <div className="text-3xl font-bold">
+                {latest?.coolant_temperature !== undefined && latest?.coolant_temperature !== null 
+                  ? latest.coolant_temperature.toFixed(1) 
+                  : '--'}
+              </div>
               <p className="text-xs text-muted-foreground mt-1">°C</p>
+              {vehicleState === "offline" && <p className="text-xs text-orange-500 mt-1">Last value</p>}
               <div className="mt-2">{latest?.coolant_temperature && getStatusBadge(latest.coolant_temperature, { warning: 95, critical: 100 })}</div>
             </CardContent>
           </Card>
@@ -247,8 +319,13 @@ useEffect(() => {
               <Battery className="w-4 h-4 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{latest?.control_module_voltage ? latest.control_module_voltage.toFixed(2) : '--'}</div>
+              <div className="text-3xl font-bold">
+                {latest?.control_module_voltage !== undefined && latest?.control_module_voltage !== null 
+                  ? latest.control_module_voltage.toFixed(2) 
+                  : '--'}
+              </div>
               <p className="text-xs text-muted-foreground mt-1">V</p>
+              {vehicleState === "offline" && <p className="text-xs text-orange-500 mt-1">Last value</p>}
               <div className="mt-2">{latest?.control_module_voltage && getStatusBadge(latest.control_module_voltage, { warning: 12, critical: 11.8 }, true)}</div>
             </CardContent>
           </Card>
@@ -260,8 +337,13 @@ useEffect(() => {
               <Gauge className="w-4 h-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{latest?.engine_load ? latest.engine_load.toFixed(1) : '--'}</div>
+              <div className="text-2xl font-bold">
+                {latest?.engine_load !== undefined && latest?.engine_load !== null 
+                  ? latest.engine_load.toFixed(1) 
+                  : '--'}
+              </div>
               <p className="text-xs text-muted-foreground mt-1">%</p>
+              {vehicleState === "offline" && <p className="text-xs text-orange-500 mt-1">Last value</p>}
               <div className="mt-2">{latest?.engine_load && getStatusBadge(latest.engine_load, { warning: 85, critical: 95 })}</div>
             </CardContent>
           </Card>
