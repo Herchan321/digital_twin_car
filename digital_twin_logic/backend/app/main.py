@@ -74,6 +74,11 @@ def get_latest_telemetry():
 async def on_startup():
     """Démarrer le client MQTT au démarrage de l'application"""
     print("🚀 Démarrage de l'application FastAPI...")
+    # Enregistrer la boucle asyncio principale pour que les callbacks MQTT
+    # (qui tournent dans un thread séparé) puissent planifier des coroutines
+    # de manière thread-safe via run_coroutine_threadsafe.
+    from . import mqtt_handler as mqtt_handler_module
+    mqtt_handler_module.async_loop = asyncio.get_running_loop()
     start_mqtt_client()
     
     # Démarrer la tâche de vérification de l'état de la voiture

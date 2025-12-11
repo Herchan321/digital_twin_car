@@ -12,6 +12,9 @@ import asyncio
 import time
 from collections import deque
 
+# Référence vers la boucle asyncio principale (initialisée au démarrage FastAPI)
+async_loop: Optional[asyncio.AbstractEventLoop] = None
+
 # === CONFIGURATION MQTT ===
 MQTT_BROKER = "109.123.243.44"
 MQTT_PORT = 1883
@@ -228,7 +231,21 @@ def on_message(client, userdata, msg):
             
             # Broadcaster immédiatement via WebSocket (avec historique)
             print("📡 Diffusion WebSocket...")
-            asyncio.create_task(broadcast_telemetry())
+            # Les callbacks paho-mqtt s'exécutent dans un thread séparé.
+            # Utiliser run_coroutine_threadsafe avec la boucle asyncio principale
+            # qui est initialisée lors de l'événement startup de FastAPI.
+            try:
+                if async_loop is not None and async_loop.is_running():
+                    asyncio.run_coroutine_threadsafe(broadcast_telemetry(), async_loop)
+                else:
+                    # Tentative de fallback: si on est dans le thread d'événement asyncio
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(broadcast_telemetry())
+                    except RuntimeError:
+                        print("⚠️ Aucun event loop disponible pour diffuser WebSocket")
+            except Exception as e:
+                print(f"❌ Erreur planification broadcast: {e}")
             
     except Exception as e:
         print(f"❌ ERREUR: {e}")
