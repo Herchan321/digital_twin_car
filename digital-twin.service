@@ -1,0 +1,21 @@
+[Unit]
+Description=Digital Twin Car Backend API
+After=network.target
+
+[Service]
+Type=simple
+User=asma
+Group=asma
+WorkingDirectory=/home/asma/digital-twin-backend
+Environment="PATH=/home/asma/digital-twin-backend/venv/bin"
+ExecStart=/home/asma/digital-twin-backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=digital-twin
+
+[Install]
+WantedBy=multi-user.target

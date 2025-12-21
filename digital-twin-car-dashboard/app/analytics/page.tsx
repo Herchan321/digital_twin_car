@@ -64,7 +64,7 @@ export default function AnalyticsPage() {
 
     // Connexion WebSocket pour les mises à jour en temps réel
     try {
-      const url = (process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000') + '/ws/telemetry'
+      const url = (process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000/ws/telemetry')
       const ws = new WebSocket(url)
       wsRef.current = ws
 

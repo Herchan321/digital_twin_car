@@ -50,12 +50,16 @@ latest_data = {
     "fuel_rail_pressure": None,
     "oxygen_sensor1_faer": None,
     "oxygen_sensor1_voltage": None,
+    "oxygen_sensor2_faer": None,
     "egr_commanded": None,
     "egr_error": None,
+    "egr_commanded_error": None,
     "warmups_since_code_clear": None,
     "distance_since_code_clear": None,
     "absolute_barometric_pressure": None,
     "pids_supported_41_60": None,
+    "pids_supported_61_80": None,
+    "pids_supported_81_a0": None,
     "monitor_status_drive_cycle": None,
     "control_module_voltage": None,
     "relative_throttle_position": None,
@@ -66,7 +70,12 @@ latest_data = {
     "max_faer": None,
     "max_oxy_sensor_voltage": None,
     "max_oxy_sensor_current": None,
-    "max_intake_pressure": None
+    "max_intake_pressure": None,
+    "engine_coolant_temp1": None,
+    "engine_coolant_temp2": None,
+    "charge_air_cooler_temp": None,
+    "egt_bank1": None,
+    "diesel_aftertreatment": None
 }
 
 # Buffer circulaire pour l'historique (max 100 points pour les graphiques Analytics)
@@ -79,46 +88,53 @@ last_saved_data = None  # Pour garder les dernières valeurs quand la voiture s'
 last_saved_history = []  # Pour garder l'historique en mode offline
 last_save_time = 0  # Pour throttling des sauvegardes BDD (max toutes les 5s)
 
-# Mapping des topics wincan (MeatPI) vers les noms de colonnes de la BDD
-# Format reçu: wincan/vehicle_speed → {"0D-VehicleSpeed":0}
-TOPIC_MAPPING = {
+# Mapping des PIDs OBD-II reçus vers les noms de colonnes de la BDD
+# Format reçu: wincan/device1 → {"01-MonitorStatus":0, "04-CalcEngineLoad":79.61, ...}
+PID_TO_COLUMN_MAPPING = {
     # PIDs essentiels
-    "wincan/engine_load": "engine_load",
-    "wincan/coolant_temperature": "coolant_temperature",
-    "wincan/intake_pressure": "intake_pressure",
-    "wincan/rpm": "rpm",
-    "wincan/vehicle_speed": "vehicle_speed",
-    "wincan/intake_air_temp": "intake_air_temp",
-    "wincan/maf_airflow": "maf_airflow",
-    "wincan/throttle_position": "throttle_position",
+    "01-MonitorStatus": "monitor_status",
+    "04-CalcEngineLoad": "engine_load",
+    "05-EngineCoolantTemp": "coolant_temperature",
+    "0B-IntakeManiAbsPress": "intake_pressure",
+    "0C-EngineRPM": "rpm",
+    "0D-VehicleSpeed": "vehicle_speed",
+    "0F-IntakeAirTemperature": "intake_air_temp",
+    "10-MAFAirFlowRate": "maf_airflow",
+    "11-ThrottlePosition": "throttle_position",
     
     # PIDs étendus
-    "wincan/monitor_status": "monitor_status",
-    "wincan/oxygen_sensors_present_banks": "oxygen_sensors_present_banks",
-    "wincan/obd_standard": "obd_standard",
-    "wincan/time_since_engine_start": "time_since_engine_start",
-    "wincan/pids_supported_21_40": "pids_supported_21_40",
-    "wincan/distance_mil_on": "distance_mil_on",
-    "wincan/fuel_rail_pressure": "fuel_rail_pressure",
-    "wincan/oxygen_sensor1_faer": "oxygen_sensor1_faer",
-    "wincan/oxygen_sensor1_voltage": "oxygen_sensor1_voltage",
-    "wincan/egr_commanded": "egr_commanded",
-    "wincan/egr_error": "egr_error",
-    "wincan/warmups_since_code_clear": "warmups_since_code_clear",
-    "wincan/distance_since_code_clear": "distance_since_code_clear",
-    "wincan/absolute_barometric_pressure": "absolute_barometric_pressure",
-    "wincan/pids_supported_41_60": "pids_supported_41_60",
-    "wincan/monitor_status_drive_cycle": "monitor_status_drive_cycle",
-    "wincan/control_module_voltage": "control_module_voltage",
-    "wincan/relative_throttle_position": "relative_throttle_position",
-    "wincan/ambient_air_temperature": "ambient_air_temperature",
-    "wincan/abs_throttle_position_d": "abs_throttle_position_d",
-    "wincan/abs_throttle_position_e": "abs_throttle_position_e",
-    "wincan/commanded_throttle_actuator": "commanded_throttle_actuator",
-    "wincan/max_faer": "max_faer",
-    "wincan/max_oxy_sensor_voltage": "max_oxy_sensor_voltage",
-    "wincan/max_oxy_sensor_current": "max_oxy_sensor_current",
-    "wincan/max_intake_pressure": "max_intake_pressure"
+    "13-OxySensorsPresent_2Banks": "oxygen_sensors_present_banks",
+    "1C-OBDStandard": "obd_standard",
+    "1F-TimeSinceEngStart": "time_since_engine_start",
+    "20-PIDsSupported_21_40": "pids_supported_21_40",
+    "21-DistanceMILOn": "distance_mil_on",
+    "23-FuelRailGaug": "fuel_rail_pressure",
+    "24-OxySensor1_FAER": "oxygen_sensor1_faer",
+    "24-OxySensor1_Volt": "oxygen_sensor1_voltage",
+    "25-OxySensor2_FAER": "oxygen_sensor2_faer",
+    "30-WarmUpsSinceCodeClear": "warmups_since_code_clear",
+    "31-DistanceSinceCodeClear": "distance_since_code_clear",
+    "33-AbsBaroPres": "absolute_barometric_pressure",
+    "40-PIDsSupported_41_60": "pids_supported_41_60",
+    "41-MonStatusDriveCycle": "monitor_status_drive_cycle",
+    "42-ControlModuleVolt": "control_module_voltage",
+    "45-RelThrottlePos": "relative_throttle_position",
+    "46-AmbientAirTemp": "ambient_air_temperature",
+    "49-AbsThrottlePosD": "abs_throttle_position_d",
+    "4A-AbsThrottlePosE": "abs_throttle_position_e",
+    "4C-CmdThrottleAct": "commanded_throttle_actuator",
+    "4F-Max_FAER": "max_faer",
+    "4F-Max_OxySensVol": "max_oxy_sensor_voltage",
+    "4F-Max_OxySensCrnt": "max_oxy_sensor_current",
+    "4F-Max_IntManiAbsPres": "max_intake_pressure",
+    "60-PIDsSupported_61_80": "pids_supported_61_80",
+    "67-EngineCoolantTemp1": "engine_coolant_temp1",
+    "67-EngineCoolantTemp2": "engine_coolant_temp2",
+    "69-CmdEGR_EGRError": "egr_commanded_error",
+    "77-ChargeAirCoolerTemperature": "charge_air_cooler_temp",
+    "78-EGT_Bank1": "egt_bank1",
+    "80-PIDsSupported_81_A0": "pids_supported_81_a0",
+    "8B-DieselAftertreatment": "diesel_aftertreatment"
 }
 
 def on_connect(client, userdata, flags, rc):
@@ -135,7 +151,7 @@ def on_connect(client, userdata, flags, rc):
         print(f"❌ Échec de connexion MQTT, code: {rc}")
 
 def on_message(client, userdata, msg):
-    """✅ CORRIGÉ: Parse le JSON {"PID-Name": value} de MeatPI"""
+    """✅ NOUVEAU FORMAT: Parse un JSON complet avec tous les PIDs sur topic wincan/deviceX"""
     global last_message_time, vehicle_state, last_saved_data, last_save_time
     
     try:
@@ -148,52 +164,57 @@ def on_message(client, userdata, msg):
         print("\n" + "="*70)
         print(f"📩 MESSAGE MQTT REÇU")
         print(f"📍 Topic: {topic}")
-        print(f"📦 Payload: {payload}")
+        print(f"📦 Payload (tronqué): {payload[:200]}..." if len(payload) > 200 else f"📦 Payload: {payload}")
         print("-"*70)
         
-        if topic in TOPIC_MAPPING:
-            field_name = TOPIC_MAPPING[topic]
+        # Extraire le device_id du topic (ex: wincan/device1 → device1)
+        if topic.startswith("wincan/"):
+            device_id = topic.split("/")[-1] if "/" in topic else "device1"
+            print(f"🔧 Device ID: {device_id}")
             
-            # ✅ CORRECTION PRINCIPALE: Parser le JSON d'abord
+            # Parser le JSON complet avec tous les PIDs
             try:
-                # Essayer de parser comme JSON: {"0D-VehicleSpeed":0}
                 data = json.loads(payload)
-                print(f"🔓 JSON parsé: {data}")
+                print(f"🔓 JSON parsé avec {len(data)} PIDs")
                 
-                if isinstance(data, dict) and len(data) > 0:
-                    # Extraire la première (et unique) paire clé-valeur
-                    json_key = list(data.keys())[0]  # Ex: "0D-VehicleSpeed"
-                    value = data[json_key]  # Ex: 0
-                    
-                    print(f"🔑 Clé JSON: {json_key}")
-                    print(f"💎 Valeur: {value} (type: {type(value).__name__})")
-                    
-                    # Conversion si nécessaire
-                    if isinstance(value, str):
-                        try:
-                            value = float(value) if '.' in value else int(value)
-                            print(f"🔢 Converti en: {value}")
-                        except (ValueError, TypeError):
-                            print(f"📝 Gardé comme texte: {value}")
-                    
-                    latest_data[field_name] = value
-                    print(f"✅ DONNÉE MISE À JOUR: {field_name} = {value}")
-                    print("="*70 + "\n")
-                    
-            except json.JSONDecodeError:
-                # Fallback: valeur brute (si pas JSON)
-                print(f"📝 Pas de JSON, traitement valeur brute")
-                try:
-                    value = float(payload) if '.' in payload else int(payload)
-                except (ValueError, TypeError):
-                    value = payload
+                if not isinstance(data, dict):
+                    print(f"⚠️  Format inattendu: attendu dict, reçu {type(data).__name__}")
+                    return
                 
-                latest_data[field_name] = value
-                print(f"✅ MISE À JOUR: {field_name} = {value}")
+                # Mettre à jour toutes les valeurs depuis le JSON
+                updated_fields = 0
+                unmapped_pids = []
+                
+                for pid_key, value in data.items():
+                    if pid_key in PID_TO_COLUMN_MAPPING:
+                        field_name = PID_TO_COLUMN_MAPPING[pid_key]
+                        
+                        # Conversion si nécessaire
+                        if isinstance(value, str):
+                            try:
+                                value = float(value) if '.' in value else int(value)
+                            except (ValueError, TypeError):
+                                pass  # Garder comme texte
+                        
+                        latest_data[field_name] = value
+                        updated_fields += 1
+                    else:
+                        unmapped_pids.append(pid_key)
+                
+                print(f"✅ {updated_fields} CHAMPS MIS À JOUR")
+                
+                if unmapped_pids:
+                    print(f"⚠️  {len(unmapped_pids)} PIDs non mappés: {', '.join(unmapped_pids[:5])}{'...' if len(unmapped_pids) > 5 else ''}")
+                    print(f"   Ajoutez-les dans PID_TO_COLUMN_MAPPING si nécessaire")
+                
+                print("-"*70)
+                
+            except json.JSONDecodeError as e:
+                print(f"❌ Erreur parsing JSON: {e}")
                 print("="*70 + "\n")
+                return
         else:
-            print(f"⚠️  TOPIC NON MAPPÉ: {topic}")
-            print(f"   Ajoutez: \"{topic}\": \"nom_champ_bdd\",")
+            print(f"⚠️  TOPIC NON RECONNU: {topic} (attendu: wincan/deviceX)")
             print("="*70 + "\n")
             return
         
@@ -304,12 +325,16 @@ def save_to_database():
             "fuel_rail_pressure": latest_data["fuel_rail_pressure"],
             "oxygen_sensor1_faer": latest_data["oxygen_sensor1_faer"],
             "oxygen_sensor1_voltage": latest_data["oxygen_sensor1_voltage"],
+            "oxygen_sensor2_faer": latest_data.get("oxygen_sensor2_faer"),
             "egr_commanded": latest_data["egr_commanded"],
             "egr_error": latest_data["egr_error"],
+            "egr_commanded_error": latest_data.get("egr_commanded_error"),
             "warmups_since_code_clear": latest_data["warmups_since_code_clear"],
             "distance_since_code_clear": latest_data["distance_since_code_clear"],
             "absolute_barometric_pressure": latest_data["absolute_barometric_pressure"],
             "pids_supported_41_60": latest_data["pids_supported_41_60"],
+            "pids_supported_61_80": latest_data.get("pids_supported_61_80"),
+            "pids_supported_81_a0": latest_data.get("pids_supported_81_a0"),
             "monitor_status_drive_cycle": latest_data["monitor_status_drive_cycle"],
             "control_module_voltage": latest_data["control_module_voltage"],
             "relative_throttle_position": latest_data["relative_throttle_position"],
@@ -321,6 +346,11 @@ def save_to_database():
             "max_oxy_sensor_voltage": latest_data["max_oxy_sensor_voltage"],
             "max_oxy_sensor_current": latest_data["max_oxy_sensor_current"],
             "max_intake_pressure": latest_data["max_intake_pressure"],
+            "engine_coolant_temp1": latest_data.get("engine_coolant_temp1"),
+            "engine_coolant_temp2": latest_data.get("engine_coolant_temp2"),
+            "charge_air_cooler_temp": latest_data.get("charge_air_cooler_temp"),
+            "egt_bank1": latest_data.get("egt_bank1"),
+            "diesel_aftertreatment": latest_data.get("diesel_aftertreatment"),
             
             "recorded_at": datetime.utcnow().isoformat()
         }

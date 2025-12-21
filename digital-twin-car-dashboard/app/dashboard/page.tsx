@@ -65,12 +65,12 @@ export default function DashboardPage() {
       }
     }
 
-    loadInitialData()
+    loadInitialData() 
 
     if (!isLiveMode) return
 
     // Connexion WebSocket pour les mises à jour en temps réel
-    const wsUrl = (process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000') + '/ws/telemetry'
+    const wsUrl = (process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000/ws/telemetry')
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 

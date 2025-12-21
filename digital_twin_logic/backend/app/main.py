@@ -33,7 +33,13 @@ app = FastAPI(
 # CORS middleware setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # URL de votre frontend Next.js
+    allow_origins=[
+        "http://localhost:3000",      # Développement local
+        "https://gounane.ovh",        # Production HTTPS
+        "http://gounane.ovh",         # Production HTTP
+        "http://api.gounane.ovh",     # Sous-domaine API
+        "https://api.gounane.ovh",    # Sous-domaine API HTTPS
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
