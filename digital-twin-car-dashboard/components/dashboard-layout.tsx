@@ -5,8 +5,16 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Car, LayoutDashboard, TrendingUp, BarChart3, Settings, LogOut, Menu, X, UserCircle } from "lucide-react"
+import { Car, LayoutDashboard, TrendingUp, BarChart3, Settings, LogOut, Menu, X, UserCircle, AlertTriangle, Truck, ChevronDown, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/lib/auth-provider"
 import { ProfilePopup } from "@/components/profile-popup"
 
@@ -36,8 +44,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/fleet", label: "Ma Flotte", icon: Truck },
     { href: "/predictions", label: "Predictions", icon: TrendingUp },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/alerts", label: "Alertes", icon: AlertTriangle },
     { href: "/settings", label: "Settings", icon: Settings },
   ]
 
@@ -73,6 +83,38 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <p className="text-xs text-muted-foreground">Vehicle IoT</p>
               </div>
             </div>
+          </div>
+
+          {/* Vehicle Selector */}
+          <div className="px-4 py-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-between bg-card/50 border-dashed">
+                  <span className="flex items-center gap-2 truncate">
+                    <Car className="h-4 w-4 text-muted-foreground" />
+                    <span className="truncate">Peugeot 208</span>
+                  </span>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="start">
+                <DropdownMenuLabel>Mes Véhicules</DropdownMenuLabel>
+                <DropdownMenuItem className="gap-2">
+                  <Car className="h-4 w-4" />
+                  <span>Peugeot 208</span>
+                  <span className="ml-auto text-xs text-green-500">Actif</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2">
+                  <Car className="h-4 w-4" />
+                  <span>Renault Clio</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="gap-2 text-muted-foreground" onClick={() => router.push('/fleet')}>
+                  <Plus className="h-4 w-4" />
+                  <span>Gérer la flotte</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Navigation */}
@@ -132,8 +174,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* Main content */}
-      <main className="lg:ml-64 min-h-screen">
-        <div className="p-6 lg:p-8">{children}</div>
+      <main className="lg:ml-64 min-h-screen flex flex-col">
+        {/* Top Header */}
+        <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm px-6 flex items-center justify-end sticky top-0 z-30">
+           <div className="flex items-center gap-4">
+             <Button variant="outline" size="sm" className="gap-2" onClick={() => router.push('/fleet')}>
+               <Car className="h-4 w-4" />
+               <span className="hidden sm:inline">Gérer ma flotte</span>
+               <Plus className="h-3 w-3 ml-1 opacity-50" />
+             </Button>
+           </div>
+        </header>
+        <div className="p-6 lg:p-8 flex-1">{children}</div>
       </main>
 
       {/* Overlay for mobile */}

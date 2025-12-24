@@ -9,6 +9,14 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  async rewrites() {
+    return [
+      {
+        source: '/traccar-proxy/:path*',
+        destination: 'https://gps.gounane.ovh/:path*',
+      },
+    ]
+  },
 }
 
 export default nextConfig

@@ -218,31 +218,15 @@ useEffect(() => {
           Last update: {isMounted ? lastUpdate.toLocaleTimeString() : "--:--:--"}
         </div>
 
-        {/* Layout avec carte et visualisation côte à côte */}
-        <div className={`grid gap-6 ${showMap ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
-          {/* Visualisation du véhicule existante */}
-          <Card className="bg-card border-border border-glow">
-            <CardHeader>
-              <CardTitle>Visualisation 3D du Véhicule</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <VehicleVisualization data={{
-                speed: latest?.vehicle_speed || 50,
-                battery: latest?.control_module_voltage || 12.5,
-                temperature: latest?.coolant_temperature || 85,
-                rpm: latest?.rpm || 1500,
-                status: "normal"
-              }} />
-            </CardContent>
-          </Card>
-
+        {/* Layout avec carte uniquement (Visualisation 3D supprimée) */}
+        <div className="grid gap-6 grid-cols-1">
           {/* Carte Google Maps 3D */}
           {showMap && (
-            <Card className="bg-card border-border border-glow">
+            <Card className="bg-card border-border border-glow h-[500px]">
               <CardHeader>
                 <CardTitle>Position GPS en Temps Réel</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 h-full">
                 <VehicleMap3D 
                   telemetryData={{
                     speed_kmh: latest?.vehicle_speed || 50,

@@ -50,7 +50,8 @@ export function VehicleMap3D({ telemetryData }: VehicleMap3DProps) {
   const [isLoading, setIsLoading] = useState(false)
 
   // Configuration Traccar
-  const TRACCAR_URL = 'https://gps.gounane.ovh'
+  // Utilisation du proxy défini dans next.config.mjs pour éviter les erreurs CORS
+  const TRACCAR_URL = '/traccar-proxy'
   const TRACCAR_EMAIL = 'hassaneboukhal@gmail.com'
   const TRACCAR_PASSWORD = 'Boukhal123'
   const DEVICE_ID = 51680098
@@ -78,13 +79,9 @@ export function VehicleMap3D({ telemetryData }: VehicleMap3DProps) {
           ? `Véhicule Traccar (Device ${DEVICE_ID})` 
           : 'Position de fallback',
         icon: {
-          path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
-          fillColor: isTraccarConnected ? '#22c55e' : '#ef4444',
-          fillOpacity: 1,
-          strokeColor: '#ffffff',
-          strokeWeight: 2,
-          scale: 1.5,
-          anchor: new window.google.maps.Point(12, 24)
+          url: 'https://cdn-icons-png.flaticon.com/512/741/741407.png',
+          scaledSize: new window.google.maps.Size(60, 60),
+          anchor: new window.google.maps.Point(30, 30)
         }
       })
 

@@ -1,342 +1,288 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
-import { Badge } from "../../components/ui/badge"
-import { DashboardLayout } from "../../components/dashboard-layout"
+import { DashboardLayout } from "@/components/dashboard-layout"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { 
+  LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  BarChart, Bar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend
+} from "recharts"
+import { 
+  Activity, AlertTriangle, Battery, Droplet, Gauge, Leaf, 
+  Thermometer, TrendingUp, User, AlertCircle, CheckCircle2
+} from "lucide-react"
 
-// Interface pour les données de prédiction
-interface PredictionData {
-  time: string
-  actual: number | null
-  predicted: number | null
-}
+// --- Mock Data ---
 
-interface Prediction {
-  vehicle_id: string
-  timestamp: string
-  estimated_range_km: number
-  battery_health_pct: number
-  next_maintenance_due: string
-  performance_score: number
-  estimated_energy_consumption?: number
-  // Nouvelles données OBD-II
-  engine_efficiency?: number
-  coolant_health_score?: number
-  fuel_system_health?: number
-  predicted_failures?: string[]
-}
+const ENGINE_TEMP_PREDICTION = [
+  { time: "Now", temp: 85, limit: 100 },
+  { time: "+5m", temp: 87, limit: 100 },
+  { time: "+10m", temp: 89, limit: 100 },
+  { time: "+15m", temp: 92, limit: 100 },
+  { time: "+20m", temp: 94, limit: 100 },
+  { time: "+25m", temp: 93, limit: 100 },
+  { time: "+30m", temp: 91, limit: 100 },
+  { time: "+35m", temp: 89, limit: 100 },
+  { time: "+40m", temp: 88, limit: 100 },
+  { time: "+45m", temp: 87, limit: 100 },
+]
+
+const FUEL_CONSUMPTION_DATA = [
+  { day: "Mon", actual: 6.5, predicted: 6.4 },
+  { day: "Tue", actual: 6.8, predicted: 6.6 },
+  { day: "Wed", actual: 7.2, predicted: 6.8 },
+  { day: "Thu", actual: 6.9, predicted: 6.7 },
+  { day: "Fri", actual: 7.5, predicted: 7.0 },
+  { day: "Sat", actual: 5.8, predicted: 6.0 },
+  { day: "Sun", actual: 5.5, predicted: 5.8 },
+]
+
+const DRIVER_PROFILE_DATA = [
+  { subject: 'Acceleration', A: 85, fullMark: 100 },
+  { subject: 'Braking', A: 78, fullMark: 100 },
+  { subject: 'Cornering', A: 90, fullMark: 100 },
+  { subject: 'Speeding', A: 65, fullMark: 100 },
+  { subject: 'Eco', A: 70, fullMark: 100 },
+  { subject: 'Consistency', A: 88, fullMark: 100 },
+]
+
+const ANOMALIES = [
+  { id: 1, type: "warning", component: "Fuel Injector", probability: "High (85%)", time: "Next 500km", message: "Irregular injection pattern detected" },
+  { id: 2, type: "critical", component: "Battery", probability: "Medium (45%)", time: "Next 2 weeks", message: "Voltage drop during startup increasing" },
+  { id: 3, type: "info", component: "Tire Pressure", probability: "Low (15%)", time: "Next 1000km", message: "Slow leak suspected in rear left" },
+]
 
 export default function PredictionsPage() {
-  const [chartData, setChartData] = useState<PredictionData[]>([])
-  const [predictedTemp, setPredictedTemp] = useState(92.5)
-  const [confidence, setConfidence] = useState(87.3)
-  const [anomalyProb, setAnomalyProb] = useState(12.4)
-  const [prediction, setPrediction] = useState<Prediction | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  
-  const vehicleId = "vehicle1" // Pour simplifier, utilisons un ID fixe
+  const [driverScore, setDriverScore] = useState(78)
+  const [breakdownProb, setBreakdownProb] = useState(12)
+  const [ecoScore, setEcoScore] = useState(82)
 
-  // Génération de données de graphique
+  // Animation effect for scores
   useEffect(() => {
-    // Generate initial data
-    const initialData: PredictionData[] = []
-    const now = new Date()
-
-    for (let i = -10; i <= 5; i++) {
-      const time = new Date(now.getTime() + i * 60000)
-      const baseTemp = 85 + Math.sin(i * 0.3) * 5
-      const actual = i <= 0 ? baseTemp + (Math.random() - 0.5) * 3 : null
-      const predicted = i >= -2 ? baseTemp + (Math.random() - 0.5) * 2 : null
-
-      initialData.push({
-        time: time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        actual: actual !== null ? Number(actual.toFixed(1)) : (null as any),
-        predicted: predicted !== null ? Number(predicted.toFixed(1)) : (null as any),
-      })
-    }
-
-    setChartData(initialData)
-
-    // Update predictions periodically
     const interval = setInterval(() => {
-      setChartData((prev) => {
-        const newData = [...prev.slice(1)]
-        const lastActual = prev[prev.length - 6]?.actual || 85
-        const now = new Date()
-        const time = new Date(now.getTime() + 6 * 60000)
-
-        newData.push({
-          time: time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          actual: Number((lastActual + (Math.random() - 0.5) * 3).toFixed(1)),
-          predicted: Number((lastActual + (Math.random() - 0.5) * 2).toFixed(1)),
-        })
-
-        return newData
-      })
-
-      setPredictedTemp((prev) => Number((prev + (Math.random() - 0.5) * 2).toFixed(1)))
-      setConfidence((prev) => Number(Math.max(75, Math.min(95, prev + (Math.random() - 0.5) * 3)).toFixed(1)))
-      setAnomalyProb((prev) => Number(Math.max(5, Math.min(25, prev + (Math.random() - 0.5) * 2)).toFixed(1)))
-    }, 3000)
-
+      setBreakdownProb(prev => Math.min(100, Math.max(0, prev + (Math.random() - 0.5) * 2)))
+    }, 2000)
     return () => clearInterval(interval)
-  }, [])
-
-  // Récupération ou simulation des données de prédiction
-  useEffect(() => {
-    async function fetchPrediction() {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        // Simulation de données au lieu d'appeler l'API
-        const simulatedData = {
-          vehicle_id: "vehicle1",
-          timestamp: new Date().toISOString(),
-          estimated_range_km: 350.5,
-          battery_health_pct: 92.8,
-          next_maintenance_due: new Date(Date.now() + 30*24*60*60*1000).toISOString(),
-          performance_score: 88.7,
-          estimated_energy_consumption: 15.3,
-          // Nouvelles données basées sur OBD-II
-          engine_efficiency: 94.2,
-          coolant_health_score: 89.5,
-          fuel_system_health: 91.8,
-          predicted_failures: ["Filtre à air à remplacer dans 2 semaines", "Capteur O2 dégradation légère"]
-        };
-        
-        // Attente simulée pour imiter une requête API
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        console.log("Données simulées:", simulatedData);
-        setPrediction(simulatedData);
-      } catch (err) {
-        console.error("Erreur:", err);
-        setError(err instanceof Error ? err.message : "Erreur inconnue");
-      } finally {
-        setLoading(false);
-      }
-    }
-    
-    fetchPrediction();
   }, [])
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
+      <div className="space-y-6 p-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">AI Predictions</h1>
-          <p className="text-muted-foreground">Advanced forecasting and anomaly detection</p>
+          <h1 className="text-3xl font-bold tracking-tight">AI Predictions & Insights</h1>
+          <p className="text-muted-foreground">
+            Advanced analytics powered by machine learning models.
+          </p>
         </div>
 
-        <div className="p-6">
-          <h1 className="text-2xl font-bold mb-6">Prédictions et Analyses</h1>
-
-          {error && (
-            <div className="p-4 mb-4 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-red-700">Erreur: {error}</p>
-            </div>
-          )}
-
-          {loading ? (
-            <div className="flex items-center justify-center p-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-            </div>
-          ) : prediction ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Autonomie Estimée</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {prediction.estimated_range_km.toFixed(1)} km
-                  </div>
-                  <p className="text-xs text-muted-foreground">Basé sur le niveau de batterie actuel</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Santé de la Batterie</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {prediction.battery_health_pct.toFixed(1)}%
-                  </div>
-                  <Badge
-                    variant={
-                      prediction.battery_health_pct > 80
-                        ? "default"
-                        : prediction.battery_health_pct > 60
-                        ? "secondary"
-                        : "destructive"
-                    }
-                  >
-                    {prediction.battery_health_pct > 80
-                      ? "Excellent"
-                      : prediction.battery_health_pct > 60
-                      ? "Bon"
-                      : "Attention requise"}
-                  </Badge>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Prochaine Maintenance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {new Date(prediction.next_maintenance_due).toLocaleDateString()}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Basé sur l'utilisation actuelle</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Score de Performance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {prediction.performance_score.toFixed(1)}/100
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-2">
-                    <div
-                      className={`h-2.5 rounded-full ${
-                        prediction.performance_score > 80
-                          ? "bg-green-600"
-                          : prediction.performance_score > 60
-                          ? "bg-yellow-400"
-                          : "bg-red-600"
-                      }`}
-                      style={{ width: `${prediction.performance_score}%` }}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {prediction.estimated_energy_consumption && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Consommation Estimée</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {prediction.estimated_energy_consumption.toFixed(1)} L/100km
-                    </div>
-                    <p className="text-xs text-muted-foreground">Basé sur votre style de conduite</p>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Nouvelles cartes OBD-II */}
-              {prediction.engine_efficiency && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Efficacité Moteur</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {prediction.engine_efficiency.toFixed(1)}%
-                    </div>
-                    <Badge variant={prediction.engine_efficiency > 90 ? "default" : "secondary"}>
-                      {prediction.engine_efficiency > 90 ? "Optimal" : "Bon"}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              )}
-
-              {prediction.coolant_health_score && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Santé Système Refroidissement</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {prediction.coolant_health_score.toFixed(1)}%
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-2">
-                      <div
-                        className={`h-2.5 rounded-full ${
-                          prediction.coolant_health_score > 85
-                            ? "bg-green-600"
-                            : prediction.coolant_health_score > 70
-                            ? "bg-yellow-400"
-                            : "bg-red-600"
-                        }`}
-                        style={{ width: `${prediction.coolant_health_score}%` }}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {prediction.fuel_system_health && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Santé Système Carburant</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {prediction.fuel_system_health.toFixed(1)}%
-                    </div>
-                    <Badge
-                      variant={
-                        prediction.fuel_system_health > 85
-                          ? "default"
-                          : prediction.fuel_system_health > 70
-                          ? "secondary"
-                          : "destructive"
-                      }
-                    >
-                      {prediction.fuel_system_health > 85
-                        ? "Excellent"
-                        : prediction.fuel_system_health > 70
-                        ? "Bon"
-                        : "Attention"}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              )}
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Dernière Mise à Jour</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-md font-medium">
-                    {new Date(prediction.timestamp).toLocaleString()}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            <p>Aucune donnée de prédiction disponible.</p>
-          )}
-
-          {/* Section des alertes prédictives */}
-          {prediction?.predicted_failures && prediction.predicted_failures.length > 0 && (
-            <div className="mt-8">
-              <h2 className="text-xl font-bold mb-4">🔮 Alertes Prédictives</h2>
-              <div className="space-y-3">
-                {prediction.predicted_failures.map((failure, index) => (
-                  <Card key={index} className="border-orange-200 bg-orange-50">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <Badge variant="secondary">Prévention</Badge>
-                        <p className="text-sm font-medium">{failure}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+        {/* Top Row: Key Metrics */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {/* 1. Driver Type */}
+          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-200 dark:border-blue-800">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Driver Type</CardTitle>
+              <User className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">Balanced</div>
+              <p className="text-xs text-muted-foreground">
+                Moderate acceleration, safe braking
+              </p>
+              <div className="mt-3 h-2 w-full bg-blue-200 dark:bg-blue-900 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-600 w-[60%]" />
               </div>
-            </div>
-          )}
+            </CardContent>
+          </Card>
+
+          {/* 2. Driving Score */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Driving Score</CardTitle>
+              <Activity className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-end justify-between">
+                <div className="text-2xl font-bold">{driverScore}/100</div>
+                <span className="text-xs text-green-600 font-medium">+2.5% vs last week</span>
+              </div>
+              <Progress value={driverScore} className="mt-3" />
+            </CardContent>
+          </Card>
+
+          {/* 4. Breakdown Probability */}
+          <Card className={`${breakdownProb > 20 ? 'border-red-200 bg-red-50 dark:bg-red-950/10' : ''}`}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Breakdown Risk</CardTitle>
+              <AlertTriangle className={`h-4 w-4 ${breakdownProb > 20 ? 'text-red-600' : 'text-muted-foreground'}`} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{breakdownProb.toFixed(1)}%</div>
+              <p className="text-xs text-muted-foreground">
+                Probability in next 48h
+              </p>
+              <Progress value={breakdownProb} className={`mt-3 ${breakdownProb > 20 ? 'bg-red-200' : ''}`} indicatorClassName={breakdownProb > 20 ? 'bg-red-600' : ''} />
+            </CardContent>
+          </Card>
+
+          {/* 7. Eco-driving */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Eco Score</CardTitle>
+              <Leaf className="h-4 w-4 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{ecoScore}/100</div>
+              <p className="text-xs text-muted-foreground">
+                Fuel efficiency rating
+              </p>
+              <Progress value={ecoScore} className="mt-3" indicatorClassName="bg-emerald-600" />
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          
+          {/* 5. Future Engine Temperature */}
+          <Card className="col-span-4">
+            <CardHeader>
+              <CardTitle>Future Engine Temperature</CardTitle>
+              <CardDescription>
+                AI forecast for the next 45 minutes based on current load and ambient conditions.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pl-2">
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={ENGINE_TEMP_PREDICTION}>
+                    <defs>
+                      <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f97316" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="time" className="text-xs" />
+                    <YAxis domain={[60, 110]} className="text-xs" />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)' }}
+                      itemStyle={{ color: 'var(--foreground)' }}
+                    />
+                    <Area type="monotone" dataKey="temp" stroke="#f97316" fillOpacity={1} fill="url(#colorTemp)" name="Temperature (°C)" />
+                    <Line type="monotone" dataKey="limit" stroke="#ef4444" strokeDasharray="5 5" name="Critical Limit" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Driver Profile Radar */}
+          <Card className="col-span-3">
+            <CardHeader>
+              <CardTitle>Driver Profile Analysis</CardTitle>
+              <CardDescription>
+                Detailed breakdown of driving habits.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart cx="50%" cy="50%" outerRadius="80%" data={DRIVER_PROFILE_DATA}>
+                    <PolarGrid className="stroke-muted" />
+                    <PolarAngleAxis dataKey="subject" className="text-xs font-medium" />
+                    <PolarRadiusAxis angle={30} domain={[0, 100]} />
+                    <Radar
+                      name="Driver"
+                      dataKey="A"
+                      stroke="#3b82f6"
+                      fill="#3b82f6"
+                      fillOpacity={0.6}
+                    />
+                    <Legend />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          
+          {/* 3. Fuel Consumption */}
+          <Card className="col-span-3">
+            <CardHeader>
+              <CardTitle>Fuel Consumption Analysis</CardTitle>
+              <CardDescription>
+                Actual vs Predicted consumption (L/100km).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={FUEL_CONSUMPTION_DATA}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="day" className="text-xs" />
+                    <YAxis className="text-xs" />
+                    <Tooltip 
+                      cursor={{ fill: 'transparent' }}
+                      contentStyle={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)' }}
+                    />
+                    <Legend />
+                    <Bar dataKey="actual" name="Actual" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="predicted" name="Predicted" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 6. Anomaly Detection */}
+          <Card className="col-span-4">
+            <CardHeader>
+              <CardTitle>Anomaly Detection</CardTitle>
+              <CardDescription>
+                Potential issues detected by predictive maintenance models.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {ANOMALIES.map((anomaly) => (
+                  <div key={anomaly.id} className="flex items-start space-x-4 p-4 border rounded-lg bg-card hover:bg-accent/50 transition-colors">
+                    <div className={`p-2 rounded-full ${
+                      anomaly.type === 'critical' ? 'bg-red-100 text-red-600 dark:bg-red-900/20' :
+                      anomaly.type === 'warning' ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/20' :
+                      'bg-blue-100 text-blue-600 dark:bg-blue-900/20'
+                    }`}>
+                      {anomaly.type === 'critical' ? <AlertCircle className="h-5 w-5" /> :
+                       anomaly.type === 'warning' ? <AlertTriangle className="h-5 w-5" /> :
+                       <Activity className="h-5 w-5" />}
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium leading-none">{anomaly.component}</p>
+                        <Badge variant={anomaly.type === 'critical' ? 'destructive' : 'secondary'}>
+                          {anomaly.probability}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {anomaly.message}
+                      </p>
+                      <div className="flex items-center pt-2 text-xs text-muted-foreground">
+                        <TrendingUp className="mr-1 h-3 w-3" />
+                        Predicted occurrence: <span className="font-medium ml-1">{anomaly.time}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                <div className="flex items-center justify-center p-4 border border-dashed rounded-lg text-muted-foreground text-sm">
+                  <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
+                  All other systems operating within normal parameters
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </DashboardLayout>
