@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -20,13 +20,6 @@ class Vehicle(VehicleBase):
 
 class TelemetryBase(BaseModel):
     vehicle_id: int
-    
-    # Champs de base (ancienne version)
-    latitude: float
-    longitude: float
-    speed_kmh: float
-    battery_pct: float
-    temperature: float
     
     # PIDs essentiels (04-11) - du mqtt_handler
     engine_load: Optional[float] = None
@@ -97,6 +90,33 @@ class PredictionRequest(BaseModel):
     total_kilometers: Optional[float] = None
     last_maintenance_date: Optional[str] = None
 
+class Anomaly(BaseModel):
+    id: int
+    type: str  # 'critical', 'warning', 'info'
+    component: str
+    probability: str
+    time: str
+    message: str
+
+class DriverProfileMetric(BaseModel):
+    subject: str
+    A: float
+    fullMark: int = 100
+
+class DriverProfile(BaseModel):
+    type: str
+    metrics: List[DriverProfileMetric]
+
+class EngineTempPrediction(BaseModel):
+    time: str
+    temp: float
+    limit: float = 100.0
+
+class FuelConsumptionData(BaseModel):
+    day: str
+    actual: float
+    predicted: float
+
 class PredictionResponse(BaseModel):
     """Réponse contenant les prédictions générées."""
     vehicle_id: str
@@ -105,4 +125,10 @@ class PredictionResponse(BaseModel):
     battery_health_pct: float
     next_maintenance_due: str
     performance_score: float
+    eco_score: Optional[float] = None
+    anomalies: Optional[List[Anomaly]] = []
+    driver_profile: Optional[DriverProfile] = None
+    breakdown_risk: Optional[float] = None
     estimated_energy_consumption: Optional[float] = None
+    future_engine_temperature: Optional[List[EngineTempPrediction]] = []
+    fuel_consumption_analysis: Optional[List[FuelConsumptionData]] = []

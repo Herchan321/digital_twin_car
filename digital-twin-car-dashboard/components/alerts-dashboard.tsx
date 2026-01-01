@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertTriangle, CheckCircle2, Info, Search, XCircle, Filter } from "lucide-react"
+import { useVehicleStore } from "@/lib/store"
 
 // Types pour les alertes
 type AlertSeverity = "critical" | "warning" | "info" | "success"
@@ -84,12 +85,95 @@ const MOCK_ALERTS: Alert[] = [
 ]
 
 export function AlertsDashboard() {
+  const { vehicles, fetchVehicles } = useVehicleStore()
+  const [alerts, setAlerts] = useState<Alert[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [severityFilter, setSeverityFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
 
+  // Charger les véhicules au montage
+  useEffect(() => {
+    fetchVehicles()
+  }, [])
+
+  // Charger les anomalies pour chaque véhicule
+  useEffect(() => {
+    const fetchAllAnomalies = async () => {
+      if (vehicles.length === 0) {
+        // Si pas de véhicules, on essaie de charger les données simulées pour vehicle1
+        // pour que l'interface ne soit pas vide lors de la démo
+        try {
+           const res = await fetch(`/api/predictions?vehicleId=vehicle1`)
+           if (res.ok) {
+             const data = await res.json()
+             if (data.anomalies) {
+               const mappedAlerts = data.anomalies.map((anomaly: any) => ({
+                 id: `ANOM-${anomaly.id}-${Date.now()}`,
+                 vehicleId: "vehicle1",
+                 vehicleName: "Peugeot 208 (Demo)",
+                 code: anomaly.component.toUpperCase().substring(0, 3) + "-001",
+                 message: anomaly.message,
+                 severity: anomaly.type,
+                 status: "active",
+                 timestamp: new Date().toISOString(),
+                 category: mapComponentToCategory(anomaly.component)
+               }))
+               setAlerts(mappedAlerts)
+             }
+           }
+        } catch (e) {
+          console.error("Error fetching demo alerts", e)
+        }
+        setLoading(false)
+        return
+      }
+
+      setLoading(true)
+      const allAlerts: Alert[] = []
+
+      for (const vehicle of vehicles) {
+        try {
+          const res = await fetch(`/api/predictions?vehicleId=${vehicle.id}`)
+          if (res.ok) {
+            const data = await res.json()
+            if (data.anomalies && Array.isArray(data.anomalies)) {
+              const vehicleAlerts = data.anomalies.map((anomaly: any) => ({
+                id: `ANOM-${vehicle.id}-${anomaly.id}`,
+                vehicleId: vehicle.id.toString(),
+                vehicleName: vehicle.name || `Vehicle ${vehicle.id}`,
+                code: anomaly.component.toUpperCase().substring(0, 3) + "-DET",
+                message: anomaly.message,
+                severity: anomaly.type,
+                status: "active", // Par défaut active car détectée en temps réel
+                timestamp: new Date().toISOString(), // Timestamp actuel car temps réel
+                category: mapComponentToCategory(anomaly.component)
+              }))
+              allAlerts.push(...vehicleAlerts)
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to fetch anomalies for vehicle ${vehicle.id}`, error)
+        }
+      }
+      
+      setAlerts(allAlerts)
+      setLoading(false)
+    }
+
+    fetchAllAnomalies()
+  }, [vehicles])
+
+  const mapComponentToCategory = (component: string): "engine" | "battery" | "security" | "maintenance" => {
+    const c = component.toLowerCase()
+    if (c.includes("battery") || c.includes("voltage")) return "battery"
+    if (c.includes("engine") || c.includes("cooling") || c.includes("oil")) return "engine"
+    if (c.includes("door") || c.includes("security")) return "security"
+    return "maintenance"
+  }
+
   // Filtrage des alertes
-  const filteredAlerts = MOCK_ALERTS.filter(alert => {
+  const filteredAlerts = alerts.filter(alert => {
     const matchesSearch = 
       alert.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
       alert.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
