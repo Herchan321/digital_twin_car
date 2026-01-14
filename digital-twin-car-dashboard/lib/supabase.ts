@@ -4,11 +4,12 @@ export const supabase = createClientComponentClient()
 
 // Types pour les données
 export interface Vehicle {
-  id: string
+  id: number
   name: string
-  model: string
-  year: number
-  last_updated?: string
+  vin?: string | null
+  status: 'active' | 'inactive' | 'maintenance'
+  created_at?: string
+  updated_at?: string
 }
 
 // ============================================================================

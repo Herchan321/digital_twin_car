@@ -71,9 +71,13 @@ async def websocket_telemetry_endpoint(websocket: WebSocket):
 
 # Endpoint REST pour obtenir les dernières données
 @app.get("/telemetry/latest")
-def get_latest_telemetry():
-    """Retourne les dernières données de télémétrie"""
-    return get_latest_data()
+def get_latest_telemetry(vehicle_id: int = 1):
+    """Retourne les dernières données de télémétrie pour un véhicule spécifique
+    
+    Args:
+        vehicle_id: ID du véhicule (défaut: 1)
+    """
+    return get_latest_data(vehicle_id)
 
 
 # === ÉVÉNEMENTS DE DÉMARRAGE ET D'ARRÊT ===

@@ -13,6 +13,7 @@ import {
   Activity, AlertTriangle, Battery, Droplet, Gauge, Leaf, 
   Thermometer, TrendingUp, User, AlertCircle, CheckCircle2
 } from "lucide-react"
+import { useVehicle } from "@/lib/vehicle-context"
 
 // --- Mock Data ---
 
@@ -55,6 +56,7 @@ const ANOMALIES = [
 ]
 
 export default function PredictionsPage() {
+  const { selectedVehicle } = useVehicle()
   const [driverScore, setDriverScore] = useState(78)
   const [breakdownProb, setBreakdownProb] = useState(12)
   const [ecoScore, setEcoScore] = useState(82)
@@ -71,10 +73,15 @@ export default function PredictionsPage() {
     <DashboardLayout>
       <div className="space-y-6 p-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">AI Predictions & Insights</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            AI Predictions & Insights {selectedVehicle ? `- ${selectedVehicle.name}` : ''}
+          </h1>
           <p className="text-muted-foreground">
             Advanced analytics powered by machine learning models.
           </p>
+          {selectedVehicle?.vin && (
+            <p className="text-sm text-muted-foreground">VIN: {selectedVehicle.vin}</p>
+          )}
         </div>
 
         {/* Top Row: Key Metrics */}

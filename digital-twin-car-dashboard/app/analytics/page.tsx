@@ -5,8 +5,9 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Pause, Play, Wifi, WifiOff } from "lucide-react"
+import { Pause, Play, Wifi, WifiOff, AlertTriangle } from "lucide-react"
 import { Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+import { useVehicle } from "@/lib/vehicle-context"
 
 interface DataPoint {
   time: string
@@ -45,9 +46,10 @@ interface WebSocketMessage {
 type TimeWindow = "5min" | "15min" | "1hour"
 
 export default function AnalyticsPage() {
+  const { selectedVehicle } = useVehicle()
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("5min")
   const [isPaused, setIsPaused] = useState(false)
-  const [vehicleId, setVehicleId] = useState<number>(1)
+  const vehicleId = selectedVehicle?.id || 1
   const [vehicleState, setVehicleState] = useState<"offline" | "running">("offline")
 
   const [speedData, setSpeedData] = useState<DataPoint[]>([])
@@ -242,13 +244,38 @@ export default function AnalyticsPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 no-animations">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">📊 Real-Time Vehicle Analytics</h1>
-            <p className="text-muted-foreground">Visualisation en direct des données du véhicule</p>
-          </div>
+      {!selectedVehicle ? (
+        <div className="flex items-center justify-center h-[60vh]">
+          <Card className="max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                Aucun véhicule sélectionné
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                Veuillez sélectionner un véhicule dans la barre latérale pour afficher ses analytics en temps réel.
+              </p>
+              <Button onClick={() => window.location.href = '/fleet'} className="w-full">
+                Gérer la flotte
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <div className="space-y-6 no-animations">
+          {/* Header */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">
+                📊 Analytics - {selectedVehicle.name}
+              </h1>
+              <p className="text-muted-foreground">Visualisation en direct des données du véhicule</p>
+              {selectedVehicle.vin && (
+                <p className="text-sm text-muted-foreground">VIN: {selectedVehicle.vin}</p>
+              )}
+            </div>
           <div className="flex items-center gap-3">
             {/* Indicateur d'état */}
             <div className="flex items-center gap-2">
@@ -310,6 +337,7 @@ export default function AnalyticsPage() {
           <ChartCard title="Tension ECU" data={controlVoltageData} color="#f97316" unit="V" />
         </div>
       </div>
+      )}
     </DashboardLayout>
   )
 }

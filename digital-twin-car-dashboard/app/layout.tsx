@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Geist } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/lib/auth-provider'
+import { VehicleProvider } from '@/lib/vehicle-context'
 import './globals.css'
 
 const geist = Geist({ subsets: ["latin"] })
@@ -20,7 +21,9 @@ export default function RootLayout({
     <html lang="fr" suppressHydrationWarning>
       <body className={geist.className} suppressHydrationWarning>
         <AuthProvider>
-          {children}
+          <VehicleProvider>
+            {children}
+          </VehicleProvider>
         </AuthProvider>
         <Analytics />
       </body>

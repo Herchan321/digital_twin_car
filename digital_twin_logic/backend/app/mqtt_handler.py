@@ -501,11 +501,50 @@ async def check_vehicle_state():
             await manager.broadcast(json.dumps(offline_message))
 
 
-def get_latest_data():
-    """Retourne les dernières données + historique (pour l'endpoint REST API)"""
-    return {
-        "state": vehicle_state,
-        "data": latest_data.copy() if vehicle_state == "running" else (last_saved_data if last_saved_data else latest_data.copy()),
-        "history": list(telemetry_history) if vehicle_state == "running" else last_saved_history,
-        "timestamp": datetime.utcnow().isoformat()
-    }
+def get_latest_data(vehicle_id: int = 1):
+    """Retourne les dernières données + historique pour un véhicule spécifique
+    
+    Args:
+        vehicle_id: ID du véhicule à requêter (défaut: 1)
+    
+    Returns:
+        Dict avec state, data, history pour le véhicule demandé
+    """
+    try:
+        # Requête Supabase pour obtenir la dernière télémétrie du véhicule
+        from .database import get_supabase
+        supabase = get_supabase()
+        
+        result = supabase.table("telemetry").select("*").eq("vehicle_id", vehicle_id).order("created_at", desc=True).limit(1).execute()
+        
+        if result.data and len(result.data) > 0:
+            # Données trouvées dans la base
+            db_data = result.data[0]
+            
+            # Déterminer l'état (si c'est le véhicule actif dans latest_data)
+            state = "running" if latest_data.get("vehicle_id") == vehicle_id and vehicle_state == "running" else "offline"
+            
+            return {
+                "state": state,
+                "data": db_data,
+                "history": list(telemetry_history) if state == "running" else [],
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        else:
+            # Aucune donnée dans la base pour ce véhicule
+            return {
+                "state": "offline",
+                "data": {"vehicle_id": vehicle_id, "message": "No telemetry data available"},
+                "history": [],
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+    except Exception as e:
+        print(f"❌ Erreur lors de la récupération des données pour véhicule {vehicle_id}: {e}")
+        # Fallback sur les données globales si erreur
+        return {
+            "state": vehicle_state if latest_data.get("vehicle_id") == vehicle_id else "offline",
+            "data": latest_data.copy() if latest_data.get("vehicle_id") == vehicle_id else {"vehicle_id": vehicle_id},
+            "history": list(telemetry_history) if latest_data.get("vehicle_id") == vehicle_id else [],
+            "timestamp": datetime.utcnow().isoformat()
+        }
