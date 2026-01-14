@@ -33,7 +33,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DeviceManager } from "@/components/device-manager"
 import { AssignmentManager } from "@/components/assignment-manager"
-import { getVehicles, createVehicle, getActiveAssignments, type Vehicle } from "@/lib/supabase"
+import { getVehicles, createVehicle, getActiveAssignments, supabase, type Vehicle } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 
 export default function FleetPage() {
@@ -41,6 +41,11 @@ export default function FleetPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editVin, setEditVin] = useState("")
+  const [editStatus, setEditStatus] = useState("active")
   const { toast } = useToast()
 
   useEffect(() => {
@@ -113,6 +118,64 @@ export default function FleetPage() {
     }
   }
 
+  const openEditDialog = (vehicle: Vehicle) => {
+    setSelectedVehicle(vehicle)
+    setEditName(vehicle.name)
+    setEditVin(vehicle.vin || '')
+    setEditStatus(vehicle.status || 'active')
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateVehicle = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    console.log('🔧 Formulaire de configuration soumis')
+    
+    if (!selectedVehicle) {
+      console.error('❌ Aucun véhicule sélectionné')
+      return
+    }
+    
+    const vehicleData = {
+      name: editName,
+      vin: editVin || null,
+      status: editStatus
+    }
+    
+    console.log('📝 Données de mise à jour:', vehicleData)
+    console.log('🎯 ID du véhicule:', selectedVehicle.id)
+    
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .update(vehicleData)
+        .eq('id', selectedVehicle.id)
+        .select()
+      
+      if (error) {
+        console.error('❌ Erreur Supabase:', error)
+        throw error
+      }
+      
+      console.log('✅ Véhicule mis à jour:', data)
+      
+      await loadVehicles()
+      setIsEditDialogOpen(false)
+      setSelectedVehicle(null)
+      
+      toast({
+        title: "Véhicule mis à jour",
+        description: `Le véhicule ${vehicleData.name} a été modifié avec succès.`,
+      })
+    } catch (error: any) {
+      console.error('❌ Erreur:', error)
+      toast({
+        title: "Erreur",
+        description: `Impossible de modifier le véhicule: ${error.message}`,
+        variant: "destructive",
+      })
+    }
+  }
+
   const filteredVehicles = vehicles.filter(v => 
     v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (v.vin && v.vin.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -154,6 +217,62 @@ export default function FleetPage() {
                 </div>
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                    Annuler
+                  </Button>
+                  <Button type="submit">Enregistrer</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          {/* Dialog de configuration */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent>
+              <form onSubmit={handleUpdateVehicle}>
+                <DialogHeader>
+                  <DialogTitle>Configurer le véhicule</DialogTitle>
+                  <DialogDescription>
+                    Modifiez les informations de {selectedVehicle?.name}.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="edit-name" className="text-right">Nom *</Label>
+                    <Input 
+                      id="edit-name" 
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="Ex: Peugeot 308" 
+                      className="col-span-3" 
+                      required 
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="edit-vin" className="text-right">VIN</Label>
+                    <Input 
+                      id="edit-vin" 
+                      value={editVin}
+                      onChange={(e) => setEditVin(e.target.value)}
+                      placeholder="Numéro de série" 
+                      className="col-span-3" 
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="edit-status" className="text-right">Statut</Label>
+                    <Select value={editStatus} onValueChange={setEditStatus}>
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Actif</SelectItem>
+                        <SelectItem value="inactive">Inactif</SelectItem>
+                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                     Annuler
                   </Button>
                   <Button type="submit">Enregistrer</Button>
@@ -217,7 +336,7 @@ export default function FleetPage() {
                           <DropdownMenuItem onClick={() => setPrimary(vehicle.id)}>
                             <Star className="mr-2 h-4 w-4" /> Définir comme favori
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openEditDialog(vehicle)}>
                             <Settings className="mr-2 h-4 w-4" /> Configurer
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
@@ -259,7 +378,7 @@ export default function FleetPage() {
                 ))}
                 
                 {/* Add Card */}
-                <Dialog>
+                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                   <DialogTrigger asChild>
                     <Card className="flex flex-col items-center justify-center border-dashed cursor-pointer hover:bg-accent/50 transition-colors min-h-[200px]">
                       <div className="p-4 rounded-full bg-muted mb-3">
@@ -269,20 +388,30 @@ export default function FleetPage() {
                     </Card>
                   </DialogTrigger>
                   <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Ajouter un nouveau véhicule</DialogTitle>
-                      <DialogDescription>
-                        Entrez les informations du véhicule pour l'ajouter à votre flotte.
-                      </DialogDescription>
-                    </DialogHeader>
-                    {/* Form content duplicated for simplicity in this view */}
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="name-2" className="text-right">Nom</Label>
-                        <Input id="name-2" placeholder="Ex: Peugeot 308" className="col-span-3" />
+                    <form onSubmit={handleCreateVehicle}>
+                      <DialogHeader>
+                        <DialogTitle>Ajouter un nouveau véhicule</DialogTitle>
+                        <DialogDescription>
+                          Entrez les informations du véhicule pour l'ajouter à votre flotte.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="name" className="text-right">Nom *</Label>
+                          <Input id="name" name="name" placeholder="Ex: Peugeot 308" className="col-span-3" required />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="vin" className="text-right">VIN</Label>
+                          <Input id="vin" name="vin" placeholder="Numéro de série" className="col-span-3" />
+                        </div>
                       </div>
-                      {/* ... other fields */}
-                    </div>
+                      <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                          Annuler
+                        </Button>
+                        <Button type="submit">Enregistrer</Button>
+                      </DialogFooter>
+                    </form>
                   </DialogContent>
                 </Dialog>
               </div>
