@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 from typing import Optional
 import paho.mqtt.client as mqtt
-from .database import get_supabase
+from .database import get_supabase, get_device_by_topic, get_active_vehicle_for_device
 import asyncio
 import time
 from collections import deque
@@ -28,7 +28,9 @@ MQTT_TOPICS = [
 
 # === Variables globales pour stocker les dernières valeurs ===
 latest_data = {
-    "vehicle_id": 1,
+    "vehicle_id": None,  # Résolu dynamiquement depuis vehicle_device_assignment
+    "device_id": None,   # ID du device qui envoie les données
+    "device_code": None, # Code du device (ex: "device1")
     
     # PIDs essentiels (04-11)
     "engine_load": None,
@@ -151,7 +153,7 @@ def on_connect(client, userdata, flags, rc):
         print(f"❌ Échec de connexion MQTT, code: {rc}")
 
 def on_message(client, userdata, msg):
-    """✅ NOUVEAU FORMAT: Parse un JSON complet avec tous les PIDs sur topic wincan/deviceX"""
+    """✅ RÉSOLUTION DYNAMIQUE: Extrait device_id depuis topic → Résout vehicle_id depuis BDD"""
     global last_message_time, vehicle_state, last_saved_data, last_save_time
     
     try:
@@ -167,54 +169,98 @@ def on_message(client, userdata, msg):
         print(f"📦 Payload (tronqué): {payload[:200]}..." if len(payload) > 200 else f"📦 Payload: {payload}")
         print("-"*70)
         
-        # Extraire le device_id du topic (ex: wincan/device1 → device1)
-        if topic.startswith("wincan/"):
-            device_id = topic.split("/")[-1] if "/" in topic else "device1"
-            print(f"🔧 Device ID: {device_id}")
-            
-            # Parser le JSON complet avec tous les PIDs
-            try:
-                data = json.loads(payload)
-                print(f"🔓 JSON parsé avec {len(data)} PIDs")
-                
-                if not isinstance(data, dict):
-                    print(f"⚠️  Format inattendu: attendu dict, reçu {type(data).__name__}")
-                    return
-                
-                # Mettre à jour toutes les valeurs depuis le JSON
-                updated_fields = 0
-                unmapped_pids = []
-                
-                for pid_key, value in data.items():
-                    if pid_key in PID_TO_COLUMN_MAPPING:
-                        field_name = PID_TO_COLUMN_MAPPING[pid_key]
-                        
-                        # Conversion si nécessaire
-                        if isinstance(value, str):
-                            try:
-                                value = float(value) if '.' in value else int(value)
-                            except (ValueError, TypeError):
-                                pass  # Garder comme texte
-                        
-                        latest_data[field_name] = value
-                        updated_fields += 1
-                    else:
-                        unmapped_pids.append(pid_key)
-                
-                print(f"✅ {updated_fields} CHAMPS MIS À JOUR")
-                
-                if unmapped_pids:
-                    print(f"⚠️  {len(unmapped_pids)} PIDs non mappés: {', '.join(unmapped_pids[:5])}{'...' if len(unmapped_pids) > 5 else ''}")
-                    print(f"   Ajoutez-les dans PID_TO_COLUMN_MAPPING si nécessaire")
-                
-                print("-"*70)
-                
-            except json.JSONDecodeError as e:
-                print(f"❌ Erreur parsing JSON: {e}")
-                print("="*70 + "\n")
-                return
-        else:
+        # ============================================================================
+        # ÉTAPE 1: Extraire le device depuis le topic MQTT
+        # ============================================================================
+        if not topic.startswith("wincan/"):
             print(f"⚠️  TOPIC NON RECONNU: {topic} (attendu: wincan/deviceX)")
+            print("="*70 + "\n")
+            return
+        
+        # Récupérer le device depuis la BDD
+        device = get_device_by_topic(topic)
+        
+        if not device:
+            print(f"❌ ERREUR: Device non trouvé pour le topic {topic}")
+            print("💡 Assurez-vous que le device existe dans la table 'devices'")
+            print("="*70 + "\n")
+            return
+        
+        device_id = device['id']
+        device_code = device['device_code']
+        device_status = device['status']
+        
+        print(f"🔧 Device: {device_code} (ID: {device_id}) - Status: {device_status}")
+        
+        # Vérifier si le device est actif
+        if device_status != 'active':
+            print(f"⚠️  Device {device_code} n'est pas actif (status: {device_status})")
+            print("="*70 + "\n")
+            return
+        
+        # ============================================================================
+        # ÉTAPE 2: Résoudre dynamiquement le véhicule associé au device
+        # ============================================================================
+        assignment = get_active_vehicle_for_device(device_id)
+        
+        if not assignment:
+            print(f"❌ ERREUR: Aucun véhicule actif associé au device {device_code}")
+            print("💡 Créez une association dans la table 'vehicle_device_assignment' avec is_active=TRUE")
+            print("="*70 + "\n")
+            return
+        
+        vehicle_id = assignment['vehicle_id']
+        vehicle_name = assignment['vehicle_name']
+        
+        print(f"🚗 Véhicule: {vehicle_name} (ID: {vehicle_id})")
+        print(f"🔗 Association active depuis: {assignment['assigned_at']}")
+        
+        # Mettre à jour les métadonnées dans latest_data
+        latest_data['vehicle_id'] = vehicle_id
+        latest_data['device_id'] = device_id
+        latest_data['device_code'] = device_code
+        
+        # ============================================================================
+        # ÉTAPE 3: Parser le JSON MQTT avec tous les PIDs
+        # ============================================================================
+        try:
+            data = json.loads(payload)
+            print(f"🔓 JSON parsé avec {len(data)} PIDs")
+            
+            if not isinstance(data, dict):
+                print(f"⚠️  Format inattendu: attendu dict, reçu {type(data).__name__}")
+                return
+            
+            # Mettre à jour toutes les valeurs depuis le JSON
+            updated_fields = 0
+            unmapped_pids = []
+            
+            for pid_key, value in data.items():
+                if pid_key in PID_TO_COLUMN_MAPPING:
+                    field_name = PID_TO_COLUMN_MAPPING[pid_key]
+                    
+                    # Conversion si nécessaire
+                    if isinstance(value, str):
+                        try:
+                            value = float(value) if '.' in value else int(value)
+                        except (ValueError, TypeError):
+                            pass  # Garder comme texte
+                    
+                    latest_data[field_name] = value
+                    updated_fields += 1
+                else:
+                    unmapped_pids.append(pid_key)
+            
+            print(f"✅ {updated_fields} CHAMPS MIS À JOUR")
+            
+            if unmapped_pids:
+                print(f"⚠️  {len(unmapped_pids)} PIDs non mappés: {', '.join(unmapped_pids[:5])}{'...' if len(unmapped_pids) > 5 else ''}")
+                print(f"   Ajoutez-les dans PID_TO_COLUMN_MAPPING si nécessaire")
+            
+            print("-"*70)
+            
+        except json.JSONDecodeError as e:
+            print(f"❌ Erreur parsing JSON: {e}")
             print("="*70 + "\n")
             return
         
@@ -302,8 +348,16 @@ def save_to_database():
         print("💾 SAUVEGARDE EN BASE DE DONNÉES")
         print("-"*70)
         
+        # Vérifier que vehicle_id et device_id sont définis
+        if latest_data["vehicle_id"] is None or latest_data["device_id"] is None:
+            print("⚠️  Impossible de sauvegarder: vehicle_id ou device_id manquant")
+            print("   Vérifiez l'association device ↔ véhicule dans vehicle_device_assignment")
+            print("="*70 + "\n")
+            return
+        
         telemetry_data = {
             "vehicle_id": latest_data["vehicle_id"],
+            "device_id": latest_data["device_id"],
             
             # PIDs essentiels
             "engine_load": latest_data["engine_load"],
@@ -363,7 +417,7 @@ def save_to_database():
         
         result = supabase.table("telemetry").insert(telemetry_data).execute()
         
-        print("✅ SAUVEGARDE RÉUSSIE!")
+        print(f"✅ SAUVEGARDE RÉUSSIE! (Device: {latest_data['device_code']} → Véhicule ID: {latest_data['vehicle_id']})")
         print("="*70 + "\n")
         
     except Exception as e:

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { 
   Car, Plus, Settings, Trash2, Smartphone, 
   CheckCircle2, Star, MoreVertical, Search,
-  Cpu, Activity
+  Cpu, Activity, Link2
 } from "lucide-react"
 import {
   Dialog,
@@ -31,37 +31,50 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-// Mock data
-const MOCK_VEHICLES = [
-  { id: 1, name: "Peugeot 208", vin: "VF3...", type: "Compact", status: "active", favorite: true, deviceId: "OBD-001" },
-  { id: 2, name: "Renault Clio", vin: "VF1...", type: "Compact", status: "maintenance", favorite: false, deviceId: "OBD-002" },
-  { id: 3, name: "Citroën C3", vin: "VF7...", type: "SUV", status: "inactive", favorite: false, deviceId: null },
-]
-
-const MOCK_DEVICES = [
-  { id: "OBD-001", name: "ELM327 WiFi", status: "connected", vehicleId: 1 },
-  { id: "OBD-002", name: "Vgate iCar", status: "disconnected", vehicleId: 2 },
-  { id: "OBD-003", name: "Generic OBD", status: "available", vehicleId: null },
-]
+import { DeviceManager } from "@/components/device-manager"
+import { AssignmentManager } from "@/components/assignment-manager"
+import { getVehicles, getActiveAssignments, type Vehicle } from "@/lib/supabase"
+import { useToast } from "@/hooks/use-toast"
 
 export default function FleetPage() {
-  const [vehicles, setVehicles] = useState(MOCK_VEHICLES)
-  const [devices, setDevices] = useState(MOCK_DEVICES)
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const { toast } = useToast()
 
-  const toggleFavorite = (id: number) => {
+  useEffect(() => {
+    loadVehicles()
+  }, [])
+
+  const loadVehicles = async () => {
+    try {
+      setLoading(true)
+      const data = await getVehicles()
+      setVehicles(data)
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: `Impossible de charger les véhicules: ${error.message}`,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleFavorite = async (id: number) => {
+    // TODO: Implement API call to toggle favorite
     setVehicles(vehicles.map(v => ({
       ...v,
-      favorite: v.id === id ? !v.favorite : v.favorite // Or allow multiple favorites? Usually one primary.
-      // If single favorite: favorite: v.id === id
+      is_favorite: v.id === id ? !v.is_favorite : v.is_favorite
     })))
   }
 
-  const setPrimary = (id: number) => {
+  const setPrimary = async (id: number) => {
+    // TODO: Implement API call to set primary vehicle
     setVehicles(vehicles.map(v => ({
       ...v,
-      favorite: v.id === id
+      is_favorite: v.id === id
     })))
   }
 
@@ -147,148 +160,113 @@ export default function FleetPage() {
               </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredVehicles.map((vehicle) => (
-                <Card key={vehicle.id} className={`transition-all hover:shadow-md ${vehicle.favorite ? 'border-primary/50 bg-primary/5' : ''}`}>
-                  <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${vehicle.favorite ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                        <Car className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-base font-semibold">{vehicle.name}</CardTitle>
-                        <CardDescription className="text-xs">{vehicle.vin}</CardDescription>
-                      </div>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => setPrimary(vehicle.id)}>
-                          <Star className="mr-2 h-4 w-4" /> Définir comme favori
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Settings className="mr-2 h-4 w-4" /> Configurer
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600">
-                          <Trash2 className="mr-2 h-4 w-4" /> Supprimer
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </CardHeader>
-                  <CardContent className="pt-4">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-muted-foreground text-xs">Statut</p>
-                        <Badge variant={vehicle.status === 'active' ? 'default' : 'secondary'} className="mt-1 capitalize">
-                          {vehicle.status}
-                        </Badge>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs">Appareil connecté</p>
-                        <div className="flex items-center gap-1 mt-1 font-medium">
-                          <Cpu className="h-3 w-3" />
-                          {vehicle.deviceId || "Aucun"}
+            {loading ? (
+              <Card>
+                <CardContent className="flex items-center justify-center h-48">
+                  <Activity className="h-8 w-8 animate-spin text-muted-foreground" />
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {filteredVehicles.map((vehicle) => (
+                  <Card key={vehicle.id} className={`transition-all hover:shadow-md ${vehicle.is_favorite ? 'border-primary/50 bg-primary/5' : ''}`}>
+                    <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${vehicle.is_favorite ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                          <Car className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-base font-semibold">{vehicle.name}</CardTitle>
+                          <CardDescription className="text-xs">{vehicle.vin || "N/A"}</CardDescription>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                  <CardFooter className="bg-muted/50 p-3 flex justify-between items-center">
-                    {vehicle.favorite ? (
-                      <span className="text-xs font-medium text-primary flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-primary" /> Véhicule principal
-                      </span>
-                    ) : (
-                      <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setPrimary(vehicle.id)}>
-                        Définir comme principal
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => setPrimary(vehicle.id)}>
+                            <Star className="mr-2 h-4 w-4" /> Définir comme favori
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Settings className="mr-2 h-4 w-4" /> Configurer
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-600">
+                            <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-muted-foreground text-xs">Marque</p>
+                          <p className="font-medium mt-1">{vehicle.make || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs">Modèle</p>
+                          <p className="font-medium mt-1">{vehicle.model || "N/A"}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="bg-muted/50 p-3 flex justify-between items-center">
+                      {vehicle.is_favorite ? (
+                        <span className="text-xs font-medium text-primary flex items-center gap-1">
+                          <Star className="h-3 w-3 fill-primary" /> Véhicule principal
+                        </span>
+                      ) : (
+                        <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setPrimary(vehicle.id)}>
+                          Définir comme principal
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" className="h-7 text-xs">
+                        Voir Dashboard
                       </Button>
-                    )}
-                    <Button variant="outline" size="sm" className="h-7 text-xs">
-                      Voir Dashboard
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-              
-              {/* Add Card */}
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Card className="flex flex-col items-center justify-center border-dashed cursor-pointer hover:bg-accent/50 transition-colors min-h-[200px]">
-                    <div className="p-4 rounded-full bg-muted mb-3">
-                      <Plus className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <p className="font-medium text-muted-foreground">Ajouter un véhicule</p>
+                    </CardFooter>
                   </Card>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Ajouter un nouveau véhicule</DialogTitle>
-                    <DialogDescription>
-                      Entrez les informations du véhicule pour l'ajouter à votre flotte.
-                    </DialogDescription>
-                  </DialogHeader>
-                  {/* Form content duplicated for simplicity in this view */}
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="name-2" className="text-right">Nom</Label>
-                      <Input id="name-2" placeholder="Ex: Peugeot 308" className="col-span-3" />
+                ))}
+                
+                {/* Add Card */}
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Card className="flex flex-col items-center justify-center border-dashed cursor-pointer hover:bg-accent/50 transition-colors min-h-[200px]">
+                      <div className="p-4 rounded-full bg-muted mb-3">
+                        <Plus className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <p className="font-medium text-muted-foreground">Ajouter un véhicule</p>
+                    </Card>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Ajouter un nouveau véhicule</DialogTitle>
+                      <DialogDescription>
+                        Entrez les informations du véhicule pour l'ajouter à votre flotte.
+                      </DialogDescription>
+                    </DialogHeader>
+                    {/* Form content duplicated for simplicity in this view */}
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name-2" className="text-right">Nom</Label>
+                        <Input id="name-2" placeholder="Ex: Peugeot 308" className="col-span-3" />
+                      </div>
+                      {/* ... other fields */}
                     </div>
-                    {/* ... other fields */}
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="devices" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Appareils OBD-II</CardTitle>
-                <CardDescription>
-                  Gérez vos boîtiers de diagnostic connectés.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {devices.map((device) => (
-                    <div key={device.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-4">
-                        <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                          <Cpu className="h-6 w-6 text-blue-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-semibold">{device.name}</h4>
-                          <p className="text-sm text-muted-foreground">ID: {device.id}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <Badge variant={device.status === 'connected' ? 'default' : 'outline'}>
-                            {device.status}
-                          </Badge>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {device.vehicleId ? `Lié à: Véhicule #${device.vehicleId}` : "Non assigné"}
-                          </p>
-                        </div>
-                        <Button variant="ghost" size="icon">
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full">
-                  <Plus className="mr-2 h-4 w-4" /> Associer un nouvel appareil
-                </Button>
-              </CardFooter>
-            </Card>
+            {/* Gestion des devices */}
+            <DeviceManager onDeviceSelect={(device) => console.log('Selected:', device)} />
+            
+            {/* Gestion des associations device ↔ véhicule */}
+            <AssignmentManager vehicles={vehicles} onRefresh={loadVehicles} />
           </TabsContent>
         </Tabs>
       </div>

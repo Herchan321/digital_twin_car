@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
 from .database import get_supabase
-from .routers import vehicles, telemetry, predictions
+from .routers import vehicles, telemetry, predictions, devices
 from .mqtt_handler import start_mqtt_client, stop_mqtt_client, check_vehicle_state, get_latest_data
 from .realtime import manager
 from fastapi import WebSocket, WebSocketDisconnect
@@ -49,6 +49,7 @@ app.add_middleware(
 app.include_router(vehicles.router, tags=["vehicles"])
 app.include_router(telemetry.router, prefix="/analytics", tags=["analytics"])
 app.include_router(predictions.router, tags=["predictions"])
+app.include_router(devices.router, prefix="/api", tags=["devices"])
 
 
 # WebSocket endpoint pour telemetry

@@ -11,6 +11,44 @@ export interface Vehicle {
   last_updated?: string
 }
 
+// ============================================================================
+// TYPES POUR GESTION DYNAMIQUE DES DEVICES OBD-II
+// ============================================================================
+
+export interface Device {
+  id: number
+  device_code: string
+  mqtt_topic: string
+  description?: string
+  status: 'active' | 'inactive' | 'maintenance'
+  created_at: string
+  updated_at: string
+}
+
+export interface VehicleDeviceAssignment {
+  id: number
+  vehicle_id: number
+  device_id: number
+  is_active: boolean
+  assigned_at: string
+  unassigned_at?: string
+  notes?: string
+  created_at: string
+}
+
+export interface ActiveDeviceAssignment {
+  assignment_id: number
+  vehicle_id: number
+  vehicle_name: string
+  vehicle_vin?: string
+  device_id: number
+  device_code: string
+  mqtt_topic: string
+  device_status: string
+  assigned_at: string
+  notes?: string
+}
+
 export interface Telemetry {
   id: number
   vehicle_id?: number
@@ -60,6 +98,16 @@ export interface Telemetry {
 }
 
 // Hooks personnalisés pour Supabase
+export const getVehicles = async (): Promise<Vehicle[]> => {
+  const { data, error } = await supabase
+    .from('vehicles')
+    .select('*')
+    .order('created_at', { ascending: false })
+  
+  if (error) throw error
+  return data as Vehicle[]
+}
+
 export const useVehicles = async () => {
   const { data, error } = await supabase
     .from('vehicles')
@@ -220,4 +268,155 @@ export const getVehicleStats = async (vehicleId: string) => {
       batteryVoltage: latest.control_module_voltage?.toFixed(2) || 'N/A'
     }
   }
+}
+
+// ============================================================================
+// API FUNCTIONS POUR DEVICES & ASSIGNMENTS
+// ============================================================================
+
+// Récupérer tous les devices
+export const getDevices = async (): Promise<Device[]> => {
+  const { data, error } = await supabase
+    .from('devices')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data as Device[]
+}
+
+// Créer un nouveau device
+export const createDevice = async (device: {
+  device_code: string
+  mqtt_topic: string
+  description?: string
+  status?: string
+}): Promise<Device> => {
+  const { data, error } = await supabase
+    .from('devices')
+    .insert([device])
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Device
+}
+
+// Mettre à jour un device
+export const updateDevice = async (
+  deviceId: number,
+  updates: Partial<Device>
+): Promise<Device> => {
+  const { data, error } = await supabase
+    .from('devices')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', deviceId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Device
+}
+
+// Supprimer un device
+export const deleteDevice = async (deviceId: number): Promise<boolean> => {
+  const { error } = await supabase
+    .from('devices')
+    .delete()
+    .eq('id', deviceId)
+
+  if (error) throw error
+  return true
+}
+
+// Récupérer tous les assignments actifs
+export const getActiveAssignments = async (): Promise<ActiveDeviceAssignment[]> => {
+  const { data, error } = await supabase
+    .from('v_active_device_assignments')
+    .select('*')
+
+  if (error) throw error
+  return data as ActiveDeviceAssignment[]
+}
+
+// Récupérer l'assignment actif d'un device
+export const getDeviceAssignment = async (
+  deviceId: number
+): Promise<VehicleDeviceAssignment | null> => {
+  const { data, error } = await supabase
+    .from('vehicle_device_assignment')
+    .select('*, cars(id, name, vin)')
+    .eq('device_id', deviceId)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (error) throw error
+  return data as VehicleDeviceAssignment | null
+}
+
+// Créer un nouvel assignment (brancher device sur véhicule)
+export const createAssignment = async (assignment: {
+  vehicle_id: number
+  device_id: number
+  is_active?: boolean
+  notes?: string
+}): Promise<VehicleDeviceAssignment> => {
+  const { data, error } = await supabase
+    .from('vehicle_device_assignment')
+    .insert([{ ...assignment, is_active: assignment.is_active ?? true }])
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as VehicleDeviceAssignment
+}
+
+// Désactiver un assignment (débrancher device)
+export const deactivateAssignment = async (
+  assignmentId: number
+): Promise<VehicleDeviceAssignment> => {
+  const { data, error } = await supabase
+    .from('vehicle_device_assignment')
+    .update({
+      is_active: false,
+      unassigned_at: new Date().toISOString()
+    })
+    .eq('id', assignmentId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as VehicleDeviceAssignment
+}
+
+// Récupérer l'historique des assignments d'un device
+export const getDeviceHistory = async (
+  deviceId: number,
+  limit: number = 10
+): Promise<any[]> => {
+  const { data, error } = await supabase
+    .from('vehicle_device_assignment')
+    .select('*, cars(id, name, vin)')
+    .eq('device_id', deviceId)
+    .order('assigned_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return data
+}
+
+// Récupérer l'historique des assignments d'un véhicule
+export const getVehicleHistory = async (
+  vehicleId: number,
+  limit: number = 10
+): Promise<any[]> => {
+  const { data, error } = await supabase
+    .from('vehicle_device_assignment')
+    .select('*, devices(id, device_code, mqtt_topic)')
+    .eq('vehicle_id', vehicleId)
+    .order('assigned_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return data
 }

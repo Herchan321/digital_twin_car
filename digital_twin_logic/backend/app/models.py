@@ -106,3 +106,64 @@ class PredictionResponse(BaseModel):
     next_maintenance_due: str
     performance_score: float
     estimated_energy_consumption: Optional[float] = None
+
+# ============================================================================
+# MODÈLES POUR GESTION DYNAMIQUE DES DEVICES OBD-II
+# ============================================================================
+
+class DeviceBase(BaseModel):
+    """Modèle de base pour un device OBD-II"""
+    device_code: str
+    mqtt_topic: str
+    description: Optional[str] = None
+    status: Optional[str] = "active"  # active, inactive, maintenance
+
+class DeviceCreate(DeviceBase):
+    """Modèle pour créer un nouveau device"""
+    pass
+
+class Device(DeviceBase):
+    """Modèle complet d'un device avec métadonnées"""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class VehicleDeviceAssignmentBase(BaseModel):
+    """Modèle de base pour l'association véhicule ↔ device"""
+    vehicle_id: int
+    device_id: int
+    is_active: bool = True
+    notes: Optional[str] = None
+
+class VehicleDeviceAssignmentCreate(VehicleDeviceAssignmentBase):
+    """Modèle pour créer une nouvelle association"""
+    pass
+
+class VehicleDeviceAssignment(VehicleDeviceAssignmentBase):
+    """Modèle complet d'une association avec historique temporel"""
+    id: int
+    assigned_at: datetime
+    unassigned_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ActiveDeviceAssignment(BaseModel):
+    """Vue simplifiée d'un assignment actif avec détails"""
+    assignment_id: int
+    vehicle_id: int
+    vehicle_name: str
+    vehicle_vin: Optional[str]
+    device_id: int
+    device_code: str
+    mqtt_topic: str
+    device_status: str
+    assigned_at: datetime
+    notes: Optional[str]
+
+    class Config:
+        from_attributes = True
