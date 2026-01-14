@@ -108,6 +108,17 @@ export const getVehicles = async (): Promise<Vehicle[]> => {
   return data as Vehicle[]
 }
 
+export const createVehicle = async (vehicle: Partial<Vehicle>): Promise<Vehicle> => {
+  const { data, error } = await supabase
+    .from('vehicles')
+    .insert([vehicle])
+    .select()
+    .single()
+  
+  if (error) throw error
+  return data as Vehicle
+}
+
 export const useVehicles = async () => {
   const { data, error } = await supabase
     .from('vehicles')

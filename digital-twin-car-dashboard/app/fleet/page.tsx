@@ -33,13 +33,14 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DeviceManager } from "@/components/device-manager"
 import { AssignmentManager } from "@/components/assignment-manager"
-import { getVehicles, getActiveAssignments, type Vehicle } from "@/lib/supabase"
+import { getVehicles, createVehicle, getActiveAssignments, type Vehicle } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 
 export default function FleetPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -77,10 +78,44 @@ export default function FleetPage() {
       is_favorite: v.id === id
     })))
   }
+  const handleCreateVehicle = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    console.log('🚀 Formulaire soumis')
+    
+    const formData = new FormData(e.currentTarget)
+    const vehicleData = {
+      name: formData.get("name") as string,
+      vin: formData.get("vin") as string || null,
+      status: 'active'
+    }
+    
+    console.log('📝 Données du véhicule:', vehicleData)
+
+    try {
+      const newVehicle = await createVehicle(vehicleData)
+      
+      console.log('✅ Véhicule créé:', newVehicle)
+
+      await loadVehicles()
+      setIsAddDialogOpen(false)
+      
+      toast({
+        title: "Véhicule ajouté",
+        description: `Le véhicule ${newVehicle.name} a été ajouté avec succès.`,
+      })
+    } catch (error: any) {
+      console.error('❌ Erreur création véhicule:', error)
+      toast({
+        title: "Erreur",
+        description: `Impossible d'ajouter le véhicule: ${error.message}`,
+        variant: "destructive",
+      })
+    }
+  }
 
   const filteredVehicles = vehicles.filter(v => 
     v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    v.vin.toLowerCase().includes(searchTerm.toLowerCase())
+    (v.vin && v.vin.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
   return (
@@ -93,46 +128,37 @@ export default function FleetPage() {
               Gérez vos véhicules et vos boîtiers OBD-II connectés.
             </p>
           </div>
-          <Dialog>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" /> Ajouter un véhicule
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Ajouter un nouveau véhicule</DialogTitle>
-                <DialogDescription>
-                  Entrez les informations du véhicule pour l'ajouter à votre flotte.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">Nom</Label>
-                  <Input id="name" placeholder="Ex: Peugeot 308" className="col-span-3" />
+              <form onSubmit={handleCreateVehicle}>
+                <DialogHeader>
+                  <DialogTitle>Ajouter un nouveau véhicule</DialogTitle>
+                  <DialogDescription>
+                    Entrez les informations du véhicule pour l'ajouter à votre flotte.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">Nom *</Label>
+                    <Input id="name" name="name" placeholder="Ex: Peugeot 308" className="col-span-3" required />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="vin" className="text-right">VIN</Label>
+                    <Input id="vin" name="vin" placeholder="Numéro de série" className="col-span-3" />
+                  </div>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="vin" className="text-right">VIN</Label>
-                  <Input id="vin" placeholder="Numéro de série" className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="type" className="text-right">Type</Label>
-                  <Select>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Sélectionner un type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sedan">Berline</SelectItem>
-                      <SelectItem value="suv">SUV</SelectItem>
-                      <SelectItem value="compact">Compacte</SelectItem>
-                      <SelectItem value="truck">Utilitaire</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit">Enregistrer</Button>
-              </DialogFooter>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                    Annuler
+                  </Button>
+                  <Button type="submit">Enregistrer</Button>
+                </DialogFooter>
+              </form>
             </DialogContent>
           </Dialog>
         </div>
@@ -204,12 +230,14 @@ export default function FleetPage() {
                     <CardContent className="pt-4">
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <p className="text-muted-foreground text-xs">Marque</p>
-                          <p className="font-medium mt-1">{vehicle.make || "N/A"}</p>
+                          <p className="text-muted-foreground text-xs">Statut</p>
+                          <Badge variant={vehicle.status === 'active' ? 'default' : 'secondary'} className="mt-1">
+                            {vehicle.status || 'active'}
+                          </Badge>
                         </div>
                         <div>
-                          <p className="text-muted-foreground text-xs">Modèle</p>
-                          <p className="font-medium mt-1">{vehicle.model || "N/A"}</p>
+                          <p className="text-muted-foreground text-xs">VIN</p>
+                          <p className="font-medium mt-1 text-xs">{vehicle.vin || "N/A"}</p>
                         </div>
                       </div>
                     </CardContent>
