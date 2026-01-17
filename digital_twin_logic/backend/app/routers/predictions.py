@@ -3,6 +3,7 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from ..models import PredictionRequest, PredictionResponse
 from ..database import get_supabase
+from ..ml.model_manager import model_manager
 
 router = APIRouter(
     prefix="/predictions",
@@ -48,19 +49,41 @@ async def generate_predictions(req: PredictionRequest, supabase=Depends(get_supa
         next_maintenance_due = (current_date + timedelta(days=30)).isoformat()
         
         # 4. Score de performance
-        # Composite de différentes métriques
-        performance_score = 85.0  # Score de base fictif
-        if telemetry_data:
-            # Ajustement basé sur les données récentes
-            recent_temps = [t.get("temperature", 25) for t in telemetry_data if "temperature" in t]
-            if recent_temps:
-                avg_temp = sum(recent_temps) / len(recent_temps)
-                if avg_temp > 50:  # Température élevée
-                    performance_score -= 10
+        # Essayer d'utiliser le modèle ML s'il est disponible
+        ml_score = model_manager.predict_driving_score(telemetry_data)
         
-        # 5. Consommation d'énergie estimée
+        if ml_score is not None:
+            performance_score = ml_score
+        else:
+            # Fallback à la logique existante
+            performance_score = 85.0  # Score de base fictif
+            if telemetry_data:
+                # Ajustement basé sur les données récentes
+                recent_temps = [t.get("temperature", 25) for t in telemetry_data if "temperature" in t]
+                if recent_temps:
+                    avg_temp = sum(recent_temps) / len(recent_temps)
+                    if avg_temp > 50:  # Température élevée
+                        performance_score -= 10
+        
+        # 5. Eco Score
+        eco_score = model_manager.predict_eco_score(telemetry_data)
+
+        # 6. Anomalies
+        anomalies = model_manager.detect_anomalies(telemetry_data)
+
+        # 7. Profil Conducteur
+        driver_profile = model_manager.predict_driver_profile(telemetry_data)
+
+        # 8. Risque de panne
+        breakdown_risk = model_manager.predict_breakdown_risk(telemetry_data, anomalies)
+
+        # 9. Consommation d'énergie estimée
         estimated_energy_consumption = 15.5  # kWh/100km (exemple)
         
+        # 10. Prédictions avancées
+        future_temp = model_manager.predict_future_engine_temperature(telemetry_data)
+        fuel_consumption = model_manager.predict_fuel_consumption(telemetry_data)
+
         # Créer la réponse
         prediction = PredictionResponse(
             vehicle_id=req.vehicle_id,
@@ -69,7 +92,13 @@ async def generate_predictions(req: PredictionRequest, supabase=Depends(get_supa
             battery_health_pct=battery_health_pct,
             next_maintenance_due=next_maintenance_due,
             performance_score=performance_score,
-            estimated_energy_consumption=estimated_energy_consumption
+            eco_score=eco_score,
+            anomalies=anomalies,
+            driver_profile=driver_profile,
+            breakdown_risk=breakdown_risk,
+            estimated_energy_consumption=estimated_energy_consumption,
+            future_engine_temperature=future_temp,
+            fuel_consumption_analysis=fuel_consumption
         )
         
         return prediction
@@ -83,18 +112,61 @@ async def get_predictions(vehicle_id: str, supabase=Depends(get_supabase)):
     Obtient les prédictions pour un véhicule spécifié par son ID.
     """
     try:
-        # Gestion du cas spécial "vehicle1"
-        if vehicle_id == "vehicle1":
-            # Renvoyer des données de prédiction par défaut pour vehicle1
-            return PredictionResponse(
-                vehicle_id="vehicle1",
-                timestamp=datetime.now().isoformat(),
-                estimated_range_km=350.5,
-                battery_health_pct=92.8,
-                next_maintenance_due=(datetime.now() + timedelta(days=30)).isoformat(),
-                performance_score=88.7,
-                estimated_energy_consumption=15.3
-            )
+        # Gestion du cas spécial "vehicle1" ou "1" pour le test
+        if vehicle_id == "vehicle1" or vehicle_id == "1":
+            print(f"🔍 Demande de prédictions pour {vehicle_id}")
+            
+            # Pour éviter tout blocage avec la base de données, on passe directement au mode simulation/modèle
+            # Si vous voulez réactiver la DB plus tard, décommentez le bloc try/except ci-dessous
+            
+            # try:
+            #     req = PredictionRequest(vehicle_id=vehicle_id)
+            #     return await generate_predictions(req, supabase)
+            # except HTTPException:
+            
+            if True: # Force l'exécution du bloc de simulation
+                print(f"⚠️ Mode test: utilisation de données simulées pour {vehicle_id}")
+                
+                # Simulation de données de télémétrie pour le modèle
+                # On ajoute un peu de variation pour avoir un score réaliste (pas 100/100)
+                # ET on simule une SURCHAUFFE (105°C) pour tester les alertes
+                dummy_telemetry = [
+                    {"speed": 85, "rpm": 2500, "throttle": 0.4, "brake": 0, "temperature": 105}, # <--- SURCHAUFFE !
+                    {"speed": 92, "rpm": 3100, "throttle": 0.6, "brake": 0, "temperature": 102},
+                    {"speed": 84, "rpm": 2450, "throttle": 0.3, "brake": 0, "temperature": 98},
+                ]
+                
+                # Appel du modèle ML avec les données simulées
+                print("🤖 Appel du modèle ML...")
+                ml_score = model_manager.predict_driving_score(dummy_telemetry)
+                eco_score = model_manager.predict_eco_score(dummy_telemetry)
+                anomalies = model_manager.detect_anomalies(dummy_telemetry)
+                breakdown_risk = model_manager.predict_breakdown_risk(dummy_telemetry, anomalies)
+                driver_profile = model_manager.predict_driver_profile(dummy_telemetry)
+                future_temp = model_manager.predict_future_engine_temperature(dummy_telemetry)
+                fuel_consumption = model_manager.predict_fuel_consumption(dummy_telemetry)
+                
+                print(f"✅ Score ML obtenu: {ml_score}, Eco Score: {eco_score}, Anomalies: {len(anomalies)}, Risk: {breakdown_risk}%")
+                
+                performance_score = ml_score if ml_score is not None else 88.7
+                
+                return PredictionResponse(
+                    vehicle_id=vehicle_id,
+                    timestamp=datetime.now().isoformat(),
+                    estimated_range_km=350.5,
+                    battery_health_pct=92.8,
+                    next_maintenance_due=(datetime.now() + timedelta(days=30)).isoformat(),
+                    performance_score=performance_score,
+                    eco_score=eco_score,
+                    anomalies=anomalies,
+                    driver_profile=driver_profile,
+                    breakdown_risk=breakdown_risk,
+                    estimated_energy_consumption=15.3,
+                    future_engine_temperature=future_temp,
+                    fuel_consumption_analysis=fuel_consumption
+                )
+            
+        # Traitement normal pour les autres véhicules...
             
         # Traitement normal pour les autres véhicules...
         req = PredictionRequest(vehicle_id=vehicle_id)

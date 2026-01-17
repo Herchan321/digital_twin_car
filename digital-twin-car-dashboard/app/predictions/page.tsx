@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { useVehicleStore } from "@/lib/store"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -57,17 +58,79 @@ const ANOMALIES = [
 
 export default function PredictionsPage() {
   const { selectedVehicle } = useVehicle()
+  const { vehicles, fetchVehicles } = useVehicleStore()
   const [driverScore, setDriverScore] = useState(78)
   const [breakdownProb, setBreakdownProb] = useState(12)
   const [ecoScore, setEcoScore] = useState(82)
+  const [anomalies, setAnomalies] = useState<any[]>(ANOMALIES)
+  const [driverProfile, setDriverProfile] = useState<any[]>(DRIVER_PROFILE_DATA)
+  const [driverType, setDriverType] = useState("Balanced")
+  const [engineTempData, setEngineTempData] = useState<any[]>(ENGINE_TEMP_PREDICTION)
+  const [fuelData, setFuelData] = useState<any[]>(FUEL_CONSUMPTION_DATA)
 
-  // Animation effect for scores
+  // Fetch vehicles on mount
+  useEffect(() => {
+    fetchVehicles()
+  }, [])
+
+  // Fetch predictions when vehicles are loaded
+  useEffect(() => {
+    const fetchPredictions = (vehicleId: string | number) => {
+      console.log(`Fetching predictions for vehicle ${vehicleId}...`)
+      fetch(`/api/predictions?vehicleId=${vehicleId}`)
+        .then(res => {
+          if (!res.ok) throw new Error(res.statusText)
+          return res.json()
+        })
+        .then(data => {
+          console.log("Predictions received:", data)
+          if (data.performance_score) {
+            setDriverScore(Math.round(data.performance_score))
+          }
+          if (data.eco_score) {
+            setEcoScore(Math.round(data.eco_score))
+          }
+          // Toujours mettre à jour les anomalies, même si la liste est vide
+          setAnomalies(data.anomalies || [])
+          
+          if (data.driver_profile) {
+            setDriverType(data.driver_profile.type)
+            setDriverProfile(data.driver_profile.metrics)
+          }
+          
+          if (data.breakdown_risk !== undefined) {
+            setBreakdownProb(data.breakdown_risk)
+          }
+
+          if (data.future_engine_temperature && data.future_engine_temperature.length > 0) {
+            setEngineTempData(data.future_engine_temperature)
+          }
+
+          if (data.fuel_consumption_analysis && data.fuel_consumption_analysis.length > 0) {
+            setFuelData(data.fuel_consumption_analysis)
+          }
+        })
+        .catch(err => console.error("Failed to fetch predictions:", err))
+    }
+
+    if (vehicles.length > 0) {
+      fetchPredictions(vehicles[0].id)
+    } else {
+      // Fallback pour le développement si aucun véhicule n'est trouvé
+      // On essaie avec un ID par défaut pour tester l'API
+      fetchPredictions("vehicle1")
+    }
+  }, [vehicles])
+
+  // Animation effect for scores (removed for real data)
+  /*
   useEffect(() => {
     const interval = setInterval(() => {
       setBreakdownProb(prev => Math.min(100, Math.max(0, prev + (Math.random() - 0.5) * 2)))
     }, 2000)
     return () => clearInterval(interval)
   }, [])
+  */
 
   return (
     <DashboardLayout>
@@ -93,9 +156,9 @@ export default function PredictionsPage() {
               <User className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">Balanced</div>
+              <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">{driverType}</div>
               <p className="text-xs text-muted-foreground">
-                Moderate acceleration, safe braking
+                Based on recent driving patterns
               </p>
               <div className="mt-3 h-2 w-full bg-blue-200 dark:bg-blue-900 rounded-full overflow-hidden">
                 <div className="h-full bg-blue-600 w-[60%]" />
@@ -162,7 +225,7 @@ export default function PredictionsPage() {
             <CardContent className="pl-2">
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={ENGINE_TEMP_PREDICTION}>
+                  <AreaChart data={engineTempData}>
                     <defs>
                       <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#f97316" stopOpacity={0.8}/>
@@ -195,7 +258,7 @@ export default function PredictionsPage() {
             <CardContent>
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="80%" data={DRIVER_PROFILE_DATA}>
+                  <RadarChart cx="50%" cy="50%" outerRadius="80%" data={driverProfile}>
                     <PolarGrid className="stroke-muted" />
                     <PolarAngleAxis dataKey="subject" className="text-xs font-medium" />
                     <PolarRadiusAxis angle={30} domain={[0, 100]} />
@@ -227,7 +290,7 @@ export default function PredictionsPage() {
             <CardContent>
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={FUEL_CONSUMPTION_DATA}>
+                  <BarChart data={fuelData}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="day" className="text-xs" />
                     <YAxis className="text-xs" />
@@ -254,7 +317,7 @@ export default function PredictionsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {ANOMALIES.map((anomaly) => (
+                {anomalies.map((anomaly) => (
                   <div key={anomaly.id} className="flex items-start space-x-4 p-4 border rounded-lg bg-card hover:bg-accent/50 transition-colors">
                     <div className={`p-2 rounded-full ${
                       anomaly.type === 'critical' ? 'bg-red-100 text-red-600 dark:bg-red-900/20' :
