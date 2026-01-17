@@ -218,15 +218,11 @@ useEffect(() => {
           Last update: {isMounted ? lastUpdate.toLocaleTimeString() : "--:--:--"}
         </div>
 
-        {/* Layout avec carte uniquement (Visualisation 3D supprimée) */}
-        <div className="grid gap-6 grid-cols-1">
-          {/* Carte Google Maps 3D */}
+        {/* Layout combiné : Carte en arrière-plan avec KPIs superposés */}
+        <div className="relative w-full h-[450px] rounded-xl overflow-hidden border border-border border-glow">
+          {/* Carte en arrière-plan (remplit tout le conteneur) */}
           {showMap && (
-            <Card className="bg-card border-border border-glow h-[500px]">
-              <CardHeader>
-                <CardTitle>Position GPS en Temps Réel</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 h-full">
+            <div className="absolute inset-0 z-0">
                 <VehicleMap3D 
                   telemetryData={{
                     speed_kmh: latest?.vehicle_speed || 50,
@@ -235,102 +231,103 @@ useEffect(() => {
                     rpm: latest?.rpm || 1500
                   }}
                 />
-              </CardContent>
-            </Card>
+            </div>
           )}
-        </div>
 
-        {/* KPIs cards avec données OBD-II du mqtt_handler */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* Speed OBD-II */}
-          <Card className="bg-card border-border border-glow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Speed</CardTitle>
-              <Zap className="w-4 h-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                {latest?.vehicle_speed !== undefined && latest?.vehicle_speed !== null 
-                  ? latest.vehicle_speed.toFixed(0) 
-                  : '--'}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">km/h</p>
-              {vehicleState === "offline" && <p className="text-xs text-orange-500 mt-1">Last value</p>}
-              <div className="mt-2">{latest?.vehicle_speed && getStatusBadge(latest.vehicle_speed, { warning: 100, critical: 110 })}</div>
-            </CardContent>
-          </Card>
+          {/* KPIs en superposition (en bas) avec espacement */}
+          <div className="absolute bottom-0 left-0 right-0 z-10 p-4 pb-8 bg-gradient-to-t from-background/90 via-background/60 to-transparent pointer-events-none">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pointer-events-auto">
+              {/* Speed OBD-II */}
+              <Card className="bg-background/80 backdrop-blur-md border-border/50">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Speed</CardTitle>
+                  <Zap className="w-4 h-4 text-primary" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">
+                    {latest?.vehicle_speed !== undefined && latest?.vehicle_speed !== null 
+                      ? latest.vehicle_speed.toFixed(0) 
+                      : '--'}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">km/h</p>
+                  {vehicleState === "offline" && <p className="text-xs text-orange-500 mt-1">Last value</p>}
+                  <div className="mt-2">{latest?.vehicle_speed && getStatusBadge(latest.vehicle_speed, { warning: 100, critical: 110 })}</div>
+                </CardContent>
+              </Card>
 
-          {/* RPM */}
-          <Card className="bg-card border-border border-glow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">RPM</CardTitle>
-              <Gauge className="w-4 h-4 text-accent" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                {latest?.rpm !== undefined && latest?.rpm !== null 
-                  ? latest.rpm.toFixed(0) 
-                  : '--'}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">revolutions/min</p>
-              {vehicleState === "offline" && <p className="text-xs text-orange-500 mt-1">Last value</p>}
-              <div className="mt-2">{latest?.rpm && getStatusBadge(latest.rpm, { warning: 5000, critical: 5500 })}</div>
-            </CardContent>
-          </Card>
+              {/* RPM */}
+              <Card className="bg-background/80 backdrop-blur-md border-border/50">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">RPM</CardTitle>
+                  <Gauge className="w-4 h-4 text-accent" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">
+                    {latest?.rpm !== undefined && latest?.rpm !== null 
+                      ? latest.rpm.toFixed(0) 
+                      : '--'}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">revolutions/min</p>
+                  {vehicleState === "offline" && <p className="text-xs text-orange-500 mt-1">Last value</p>}
+                  <div className="mt-2">{latest?.rpm && getStatusBadge(latest.rpm, { warning: 5000, critical: 5500 })}</div>
+                </CardContent>
+              </Card>
 
-          {/* Temperature (Coolant) */}
-          <Card className="bg-card border-border border-glow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Temperature</CardTitle>
-              <Thermometer className="w-4 h-4 text-warning" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                {latest?.coolant_temperature !== undefined && latest?.coolant_temperature !== null 
-                  ? latest.coolant_temperature.toFixed(1) 
-                  : '--'}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">°C</p>
-              {vehicleState === "offline" && <p className="text-xs text-orange-500 mt-1">Last value</p>}
-              <div className="mt-2">{latest?.coolant_temperature && getStatusBadge(latest.coolant_temperature, { warning: 95, critical: 100 })}</div>
-            </CardContent>
-          </Card>
+              {/* Temperature (Coolant) */}
+              <Card className="bg-background/80 backdrop-blur-md border-border/50">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Temperature</CardTitle>
+                  <Thermometer className="w-4 h-4 text-warning" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">
+                    {latest?.coolant_temperature !== undefined && latest?.coolant_temperature !== null 
+                      ? latest.coolant_temperature.toFixed(1) 
+                      : '--'}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">°C</p>
+                  {vehicleState === "offline" && <p className="text-xs text-orange-500 mt-1">Last value</p>}
+                  <div className="mt-2">{latest?.coolant_temperature && getStatusBadge(latest.coolant_temperature, { warning: 95, critical: 100 })}</div>
+                </CardContent>
+              </Card>
 
-          {/* Battery (Control Module Voltage) */}
-          <Card className="bg-card border-border border-glow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Battery</CardTitle>
-              <Battery className="w-4 h-4 text-success" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                {latest?.control_module_voltage !== undefined && latest?.control_module_voltage !== null 
-                  ? latest.control_module_voltage.toFixed(2) 
-                  : '--'}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">V</p>
-              {vehicleState === "offline" && <p className="text-xs text-orange-500 mt-1">Last value</p>}
-              <div className="mt-2">{latest?.control_module_voltage && getStatusBadge(latest.control_module_voltage, { warning: 12, critical: 11.8 }, true)}</div>
-            </CardContent>
-          </Card>
+              {/* Battery (Control Module Voltage) */}
+              <Card className="bg-background/80 backdrop-blur-md border-border/50">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Battery</CardTitle>
+                  <Battery className="w-4 h-4 text-success" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">
+                    {latest?.control_module_voltage !== undefined && latest?.control_module_voltage !== null 
+                      ? latest.control_module_voltage.toFixed(2) 
+                      : '--'}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">V</p>
+                  {vehicleState === "offline" && <p className="text-xs text-orange-500 mt-1">Last value</p>}
+                  <div className="mt-2">{latest?.control_module_voltage && getStatusBadge(latest.control_module_voltage, { warning: 12, critical: 11.8 }, true)}</div>
+                </CardContent>
+              </Card>
 
-          {/* Engine Load */}
-          <Card className="bg-card border-border border-glow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Engine Load</CardTitle>
-              <Gauge className="w-4 h-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {latest?.engine_load !== undefined && latest?.engine_load !== null 
-                  ? latest.engine_load.toFixed(1) 
-                  : '--'}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">%</p>
-              {vehicleState === "offline" && <p className="text-xs text-orange-500 mt-1">Last value</p>}
-              <div className="mt-2">{latest?.engine_load && getStatusBadge(latest.engine_load, { warning: 85, critical: 95 })}</div>
-            </CardContent>
-          </Card>
+              {/* Engine Load */}
+              <Card className="bg-background/80 backdrop-blur-md border-border/50">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Engine Load</CardTitle>
+                  <Gauge className="w-4 h-4 text-primary" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {latest?.engine_load !== undefined && latest?.engine_load !== null 
+                      ? latest.engine_load.toFixed(1) 
+                      : '--'}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">%</p>
+                  {vehicleState === "offline" && <p className="text-xs text-orange-500 mt-1">Last value</p>}
+                  <div className="mt-2">{latest?.engine_load && getStatusBadge(latest.engine_load, { warning: 85, critical: 95 })}</div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
 
         {/* Carte Position GPS */}

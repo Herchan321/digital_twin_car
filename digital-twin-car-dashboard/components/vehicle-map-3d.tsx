@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+
 interface TraccarPosition {
   id: number
   deviceId: number
@@ -94,7 +95,7 @@ export function VehicleMap3D({ telemetryData }: VehicleMap3DProps) {
       initMap()
     } else {
       const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=maps,marker`
       script.async = true
       script.defer = true
       script.onload = initMap
