@@ -8,6 +8,13 @@ __pycache__/
 # Environment files
 digital_twin_logic/.env
 
+# Ignorer tous les fichiers Markdown
+*.md
+*.txt
+
+# MAIS garder README.md
+!README.md
+
 # VS Code
 .vscode/
 

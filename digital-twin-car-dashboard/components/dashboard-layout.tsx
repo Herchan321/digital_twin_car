@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/lib/auth-provider"
 import { ProfilePopup } from "@/components/profile-popup"
+import { useVehicle } from "@/lib/vehicle-context"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -28,6 +29,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const { vehicles, selectedVehicle, setSelectedVehicle, isLoading } = useVehicle()
   const { signOut } = useAuth()
 
   const handleLogout = async () => {
@@ -92,22 +94,34 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Button variant="outline" className="w-full justify-between bg-card/50 border-dashed">
                   <span className="flex items-center gap-2 truncate">
                     <Car className="h-4 w-4 text-muted-foreground" />
-                    <span className="truncate">Peugeot 208</span>
+                    <span className="truncate">
+                      {selectedVehicle ? selectedVehicle.name : "Sélectionner un véhicule"}
+                    </span>
                   </span>
                   <ChevronDown className="h-4 w-4 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="start">
                 <DropdownMenuLabel>Mes Véhicules</DropdownMenuLabel>
-                <DropdownMenuItem className="gap-2">
-                  <Car className="h-4 w-4" />
-                  <span>Peugeot 208</span>
-                  <span className="ml-auto text-xs text-green-500">Actif</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2">
-                  <Car className="h-4 w-4" />
-                  <span>Renault Clio</span>
-                </DropdownMenuItem>
+                {vehicles.length > 0 ? (
+                  vehicles.map((vehicle) => (
+                    <DropdownMenuItem
+                      key={vehicle.id}
+                      className="gap-2"
+                      onClick={() => setSelectedVehicle(vehicle)}
+                    >
+                      <Car className="h-4 w-4" />
+                      <span>{vehicle.name}</span>
+                      {selectedVehicle?.id === vehicle.id && (
+                        <span className="ml-auto text-xs text-green-500">Actif</span>
+                      )}
+                    </DropdownMenuItem>
+                  ))
+                ) : (
+                  <DropdownMenuItem disabled className="gap-2">
+                    <span className="text-muted-foreground">Aucun véhicule disponible</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="gap-2 text-muted-foreground" onClick={() => router.push('/fleet')}>
                   <Plus className="h-4 w-4" />

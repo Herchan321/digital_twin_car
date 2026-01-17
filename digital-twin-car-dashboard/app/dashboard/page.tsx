@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Wifi, WifiOff, Play, Pause, Zap, Gauge, Thermometer, Battery, AlertTriangle, MapPin, Map } from "lucide-react"
+import { useVehicle } from "@/lib/vehicle-context"
 
 interface TelemetryData {
   vehicle_id: number
@@ -34,6 +35,7 @@ interface WebSocketMessage {
 }
 
 export default function DashboardPage() {
+  const { selectedVehicle } = useVehicle()
   const [telemetry, setTelemetry] = useState<TelemetryData | null>(null)
   const [isLiveMode, setIsLiveMode] = useState(true)
   const [vehicleState, setVehicleState] = useState<"offline" | "running">("offline")
@@ -44,21 +46,34 @@ export default function DashboardPage() {
   const [showMap, setShowMap] = useState(true)
   const wsRef = useRef<WebSocket | null>(null)
 
-  const vehicleId = "1" 
+  const vehicleId = selectedVehicle?.id?.toString() || "1" 
 
   useEffect(() => setIsMounted(true), [])
 
   useEffect(() => {
+    console.log(`🔥 useEffect Dashboard déclenché - Vehicle ID sélectionné: ${vehicleId}, Type: ${typeof vehicleId}`)
+    
     // Charger les données initiales via REST API
     async function loadInitialData() {
       try {
-        const response = await fetch('http://localhost:8000/telemetry/latest')
+        const url = `http://localhost:8000/telemetry/latest?vehicle_id=${vehicleId}`
+        console.log(`📡 Chargement initial pour véhicule ID: ${vehicleId}`)
+        const response = await fetch(url)
         const data = await response.json()
         
+        console.log(`📦 Données reçues du backend:`, data)
+        
         if (data.data) {
-          setTelemetry(data.data)
-          setVehicleState(data.state)
-          setLastUpdate(new Date())
+          console.log(`🔍 Comparaison: data.vehicle_id=${data.data.vehicle_id} (${typeof data.data.vehicle_id}) vs vehicleId=${vehicleId} (${typeof vehicleId})`)
+          // Vérifier que les données correspondent au véhicule sélectionné
+          if (data.data.vehicle_id === parseInt(vehicleId)) {
+            setTelemetry(data.data)
+            setVehicleState(data.state)
+            setLastUpdate(new Date())
+            console.log(`✅ Données initiales chargées pour véhicule ${vehicleId}`)
+          } else {
+            console.log(`❌ Données ignorées: vehicle_id=${data.data.vehicle_id} ne correspond pas à ${vehicleId}`)
+          }
         }
       } catch (error) {
         console.error("❌ Erreur chargement initial:", error)
@@ -71,11 +86,12 @@ export default function DashboardPage() {
 
     // Connexion WebSocket pour les mises à jour en temps réel
     const wsUrl = (process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000/ws/telemetry')
+    console.log(`🔌 Connexion WebSocket pour véhicule ${vehicleId}`)
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 
     ws.onopen = () => {
-      console.log('✅ WebSocket connecté')
+      console.log(`✅ WebSocket connecté pour véhicule ${vehicleId}`)
     }
 
     ws.onmessage = (event) => {
@@ -83,10 +99,21 @@ export default function DashboardPage() {
         const message: WebSocketMessage = JSON.parse(event.data)
         
         if (message.type === 'telemetry_update') {
+          const t = message.data
+          
+          console.log(`📨 Message WebSocket reçu - Vehicle ID dans message: ${t.vehicle_id} (${typeof t.vehicle_id}), vehicleId attendu: ${vehicleId} (${typeof vehicleId})`)
+          
+          // ✅ Filtrer par vehicle_id pour n'afficher que les données du véhicule sélectionné
+          if (t.vehicle_id !== parseInt(vehicleId)) {
+            console.log(`🔄 Données ignorées - Vehicle ID: ${t.vehicle_id} (attendu: ${vehicleId})`)
+            return
+          }
+          
+          console.log(`✅ Données acceptées pour véhicule ${vehicleId}`)
           setTelemetry(message.data)
           setVehicleState(message.state)
           setLastUpdate(new Date())
-          console.log(`📊 Données reçues - État: ${message.state}`, message.data)
+          console.log(`📊 KPIs mis à jour - État: ${message.state}, Vehicle ID: ${t.vehicle_id}`, message.data)
         }
       } catch (error) {
         console.error('Erreur parsing WebSocket:', error)
@@ -98,7 +125,7 @@ export default function DashboardPage() {
     }
 
     ws.onclose = () => {
-      console.log('🔴 WebSocket déconnecté')
+      console.log(`🔴 WebSocket déconnecté (véhicule ${vehicleId})`)
       // Reconnexion automatique après 5 secondes
       if (isLiveMode) {
         setTimeout(() => {
@@ -108,6 +135,7 @@ export default function DashboardPage() {
     }
 
     return () => {
+      console.log(`🧹 Cleanup WebSocket pour véhicule ${vehicleId}`)
       if (wsRef.current) {
         wsRef.current.close()
       }
@@ -169,33 +197,58 @@ useEffect(() => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Vehicle Digital Twin Visualization</h1>
-            <p className="text-muted-foreground">Real-time monitoring and status overview</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              {vehicleState === "running" ? (
-                <>
-                  <Wifi className="w-5 h-5 text-success" />
-                  <span className="text-sm text-success font-medium">Running</span>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-5 h-5 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground font-medium">Offline</span>
-                </>
+      {!selectedVehicle ? (
+        <div className="flex items-center justify-center h-[60vh]">
+          <Card className="max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                Aucun véhicule sélectionné
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                Veuillez sélectionner un véhicule dans la barre latérale pour afficher ses données en temps réel.
+              </p>
+              <Button onClick={() => window.location.href = '/fleet'} className="w-full">
+                Gérer la flotte
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">
+                {selectedVehicle.name} - Digital Twin
+              </h1>
+              <p className="text-muted-foreground">Real-time monitoring and status overview</p>
+              {selectedVehicle.vin && (
+                <p className="text-sm text-muted-foreground">VIN: {selectedVehicle.vin}</p>
               )}
             </div>
-            
-            {/* Nouveau bouton pour basculer la vue carte */}
-            <Button variant="outline" size="sm" onClick={() => setShowMap(!showMap)}>
-              <Map className="w-4 h-4" />
-              {showMap ? 'Masquer Carte' : 'Afficher Carte'}
-            </Button>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                {vehicleState === "running" ? (
+                  <>
+                    <Wifi className="w-5 h-5 text-success" />
+                    <span className="text-sm text-success font-medium">Running</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-5 h-5 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground font-medium">Offline</span>
+                  </>
+                )}
+              </div>
+              
+              {/* Nouveau bouton pour basculer la vue carte */}
+              <Button variant="outline" size="sm" onClick={() => setShowMap(!showMap)}>
+                <Map className="w-4 h-4" />
+                {showMap ? 'Masquer Carte' : 'Afficher Carte'}
+              </Button>
             
             <Button variant="outline" size="sm" onClick={() => setIsLiveMode(!isLiveMode)}>
               {isLiveMode ? (
@@ -372,12 +425,8 @@ useEffect(() => {
     {prediction}
   </div>
 </div>
-
-
-
-
-
-      </div>
+        </div>
+      )}
     </DashboardLayout>
   )
 }
