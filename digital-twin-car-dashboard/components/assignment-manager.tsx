@@ -49,6 +49,8 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
   const [selectedAssignment, setSelectedAssignment] = useState<ActiveDeviceAssignment | null>(null)
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
   const [deviceHistory, setDeviceHistory] = useState<any[]>([])
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const [pendingAssignment, setPendingAssignment] = useState<{vehicleId: number, deviceId: number, notes?: string, existingAssignment?: ActiveDeviceAssignment} | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -79,21 +81,44 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
 
+    const vehicleId = parseInt(formData.get("vehicle_id") as string)
+    const deviceId = parseInt(formData.get("device_id") as string)
+    const notes = formData.get("notes") as string || undefined
+
+    // Vérifier si le véhicule a déjà un device actif
+    const existingAssignment = assignments.find(a => a.vehicle_id === vehicleId)
+    
+    if (existingAssignment) {
+      // Stocker les données et ouvrir la popup de confirmation
+      setPendingAssignment({ vehicleId, deviceId, notes, existingAssignment })
+      setConfirmDialogOpen(true)
+      return
+    }
+
+    // Pas de conflit, procéder directement
+    await performAssignment(vehicleId, deviceId, notes)
+  }
+
+  const performAssignment = async (vehicleId: number, deviceId: number, notes?: string, existingAssignment?: ActiveDeviceAssignment) => {
     try {
       await createAssignment({
-        vehicle_id: parseInt(formData.get("vehicle_id") as string),
-        device_id: parseInt(formData.get("device_id") as string),
+        vehicle_id: vehicleId,
+        device_id: deviceId,
         is_active: true,
-        notes: formData.get("notes") as string || undefined,
+        notes: notes,
       })
 
       await loadData()
       setIsAssignDialogOpen(false)
+      setConfirmDialogOpen(false)
+      setPendingAssignment(null)
       onRefresh?.()
 
       toast({
         title: "Association créée",
-        description: "Le device a été associé au véhicule avec succès.",
+        description: existingAssignment 
+          ? `Le device a été associé au véhicule. L'ancien device "${existingAssignment.device_code}" a été débranché.`
+          : "Le device a été associé au véhicule avec succès.",
       })
     } catch (error: any) {
       toast({
@@ -102,6 +127,17 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
         variant: "destructive",
       })
     }
+  }
+
+  const handleConfirmAssignment = async () => {
+    if (!pendingAssignment) return
+    
+    await performAssignment(
+      pendingAssignment.vehicleId, 
+      pendingAssignment.deviceId, 
+      pendingAssignment.notes,
+      pendingAssignment.existingAssignment
+    )
   }
 
   const handleDeactivateAssignment = async (assignment: ActiveDeviceAssignment) => {
@@ -390,6 +426,54 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
               </div>
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de confirmation remplacement */}
+      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-full">
+                <AlertCircle className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+              </div>
+              <DialogTitle className="text-xl">Attention!</DialogTitle>
+            </div>
+            <DialogDescription className="text-base space-y-3 pt-2">
+              {pendingAssignment?.existingAssignment && (
+                <>
+                  <p>
+                    Le véhicule <span className="font-semibold text-foreground">"{pendingAssignment.existingAssignment.vehicle_name}"</span> a déjà le device <span className="font-semibold text-foreground">"{pendingAssignment.existingAssignment.device_code}"</span> branché.
+                  </p>
+                  <p className="text-orange-600 dark:text-orange-400 font-medium">
+                    Si vous continuez, l'ancien device sera automatiquement débranché et remplacé par le nouveau.
+                  </p>
+                  <p className="text-sm">
+                    Voulez-vous continuer?
+                  </p>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setConfirmDialogOpen(false)
+                setPendingAssignment(null)
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmAssignment}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              Oui, continuer
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

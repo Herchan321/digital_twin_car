@@ -64,6 +64,16 @@ export default function AnalyticsPage() {
   useEffect(() => {
     let isMounted = true
 
+    // 🔄 Réinitialiser tous les graphiques quand on change de véhicule
+    console.log(`🔄 Changement de véhicule: ${vehicleId}`)
+    setSpeedData([])
+    setRpmData([])
+    setCoolantTempData([])
+    setEngineLoadData([])
+    setFuelPressureData([])
+    setControlVoltageData([])
+    setVehicleState("offline")
+
     // Connexion WebSocket pour les mises à jour en temps réel
     try {
       const url = (process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000/ws/telemetry')
@@ -71,7 +81,7 @@ export default function AnalyticsPage() {
       wsRef.current = ws
 
       ws.onopen = () => {
-        console.log('✅ WebSocket Analytics connecté')
+        console.log(`✅ WebSocket Analytics connecté pour véhicule ${vehicleId}`)
       }
 
       ws.onmessage = (ev) => {
@@ -82,8 +92,14 @@ export default function AnalyticsPage() {
           
           if (message.type === 'telemetry_update') {
             const t = message.data
-            if (t.vehicle_id !== vehicleId) return
+            
+            // ✅ FILTRER par vehicle_id - CRITIQUE pour éviter mélange des données
+            if (t.vehicle_id !== vehicleId) {
+              console.log(`🔄 Données ignorées: vehicle ${t.vehicle_id} !== ${vehicleId}`)
+              return
+            }
 
+            console.log(`✅ Données acceptées pour véhicule ${vehicleId}`)
             setVehicleState(message.state)
 
             // ✅ UTILISER L'HISTORIQUE SI DISPONIBLE (100 points du backend)

@@ -81,13 +81,14 @@ latest_data = {
 }
 
 # Buffer circulaire pour l'historique (max 100 points pour les graphiques Analytics)
-telemetry_history = deque(maxlen=100)
+# Maintenant organisé par véhicule: {vehicle_id: deque(maxlen=100)}
+telemetry_history = {}
 
 # Variables pour détecter l'état de la voiture
 last_message_time = None
 vehicle_state = "offline"  # "offline", "running"
 last_saved_data = None  # Pour garder les dernières valeurs quand la voiture s'éteint
-last_saved_history = []  # Pour garder l'historique en mode offline
+last_saved_history = {}  # Pour garder l'historique par véhicule en mode offline: {vehicle_id: [...]}
 last_save_time = 0  # Pour throttling des sauvegardes BDD (max toutes les 5s)
 
 # Mapping des PIDs OBD-II reçus vers les noms de colonnes de la BDD
@@ -275,8 +276,13 @@ def on_message(client, userdata, msg):
         
         if has_essential_data:
             # ✅ AJOUTER AU BUFFER CIRCULAIRE (pour graphiques Analytics)
+            # Créer un buffer pour ce véhicule si il n'existe pas
+            if vehicle_id not in telemetry_history:
+                telemetry_history[vehicle_id] = deque(maxlen=100)
+            
             telemetry_point = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now().isoformat(),
+                "vehicle_id": vehicle_id,  # Ajouter vehicle_id pour le filtrage
                 "rpm": latest_data["rpm"],
                 "vehicle_speed": latest_data["vehicle_speed"],
                 "coolant_temperature": latest_data["coolant_temperature"],
@@ -284,8 +290,10 @@ def on_message(client, userdata, msg):
                 "fuel_rail_pressure": latest_data["fuel_rail_pressure"],
                 "control_module_voltage": latest_data["control_module_voltage"]
             }
-            telemetry_history.append(telemetry_point)
-            print(f"📊 Historique: {len(telemetry_history)} points en buffer")
+            telemetry_history[vehicle_id].append(telemetry_point)
+            
+            total_points = sum(len(hist) for hist in telemetry_history.values())
+            print(f"📊 Historique véhicule {vehicle_id}: {len(telemetry_history[vehicle_id])} points (Total: {total_points} points pour {len(telemetry_history)} véhicules)")
             
             # ✅ THROTTLING: Sauvegarder max toutes les 5s
             current_time = time.time()
@@ -294,7 +302,7 @@ def on_message(client, userdata, msg):
                 save_to_database()
                 last_save_time = current_time
                 last_saved_data = latest_data.copy()
-                last_saved_history = list(telemetry_history)  # Sauvegarder l'historique
+                last_saved_history[vehicle_id] = list(telemetry_history.get(vehicle_id, []))  # Sauvegarder l'historique du véhicule actuel
             
             # Broadcaster immédiatement via WebSocket (avec historique)
             print("📡 Diffusion WebSocket...")
@@ -326,16 +334,20 @@ async def broadcast_telemetry():
     try:
         from .realtime import manager
         
+        # Récupérer le vehicle_id actuel pour envoyer seulement son historique
+        vehicle_id = latest_data.get('vehicle_id')
+        vehicle_history = list(telemetry_history.get(vehicle_id, [])) if vehicle_id else []
+        
         telemetry_message = {
             "type": "telemetry_update",
             "state": vehicle_state,
             "data": latest_data.copy(),  # Dernière valeur pour KPIs Dashboard
-            "history": list(telemetry_history),  # Historique complet pour graphiques Analytics
-            "timestamp": datetime.utcnow().isoformat()
+            "history": vehicle_history,  # Historique UNIQUEMENT du véhicule actuel
+            "timestamp": datetime.now().isoformat()
         }
         
         await manager.broadcast(json.dumps(telemetry_message))
-        print(f"✅ WebSocket diffusé - {len(manager.active_connections)} clients - {len(telemetry_history)} points historiques - État: {vehicle_state}")
+        print(f"✅ WebSocket diffusé - {len(manager.active_connections)} clients - {len(vehicle_history)} points historiques véhicule {vehicle_id} - État: {vehicle_state}")
     except Exception as e:
         print(f"❌ Erreur WebSocket: {e}")
 
@@ -406,7 +418,7 @@ def save_to_database():
             "egt_bank1": latest_data.get("egt_bank1"),
             "diesel_aftertreatment": latest_data.get("diesel_aftertreatment"),
             
-            "recorded_at": datetime.utcnow().isoformat()
+            "recorded_at": datetime.now().isoformat()
         }
         
         # Afficher données non-null
@@ -490,13 +502,17 @@ async def check_vehicle_state():
             vehicle_state = "offline"
             print(f"🔴 Voiture OFFLINE - Pas de message depuis {time_since_last_message:.1f}s")
             
-            # Envoyer l'état offline avec les dernières valeurs ET l'historique complet sauvegardés
+            # Récupérer le vehicle_id pour envoyer son historique sauvegardé
+            vehicle_id = last_saved_data.get('vehicle_id') if last_saved_data else latest_data.get('vehicle_id')
+            saved_history = last_saved_history.get(vehicle_id, []) if vehicle_id else []
+            
+            # Envoyer l'état offline avec les dernières valeurs ET l'historique sauvegardé du véhicule
             offline_message = {
                 "type": "telemetry_update",
                 "state": "offline",
                 "data": last_saved_data if last_saved_data else latest_data.copy(),
-                "history": last_saved_history,  # Historique complet avant extinction
-                "timestamp": datetime.utcnow().isoformat()
+                "history": saved_history,  # Historique du véhicule avant extinction
+                "timestamp": datetime.now().isoformat()
             }
             await manager.broadcast(json.dumps(offline_message))
 
@@ -524,11 +540,14 @@ def get_latest_data(vehicle_id: int = 1):
             # Déterminer l'état (si c'est le véhicule actif dans latest_data)
             state = "running" if latest_data.get("vehicle_id") == vehicle_id and vehicle_state == "running" else "offline"
             
+            # Récupérer l'historique spécifique à ce véhicule
+            vehicle_history = list(telemetry_history.get(vehicle_id, [])) if state == "running" else []
+            
             return {
                 "state": state,
                 "data": db_data,
-                "history": list(telemetry_history) if state == "running" else [],
-                "timestamp": datetime.utcnow().isoformat()
+                "history": vehicle_history,
+                "timestamp": datetime.now().isoformat()
             }
         else:
             # Aucune donnée dans la base pour ce véhicule
@@ -536,15 +555,18 @@ def get_latest_data(vehicle_id: int = 1):
                 "state": "offline",
                 "data": {"vehicle_id": vehicle_id, "message": "No telemetry data available"},
                 "history": [],
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now().isoformat()
             }
             
     except Exception as e:
         print(f"❌ Erreur lors de la récupération des données pour véhicule {vehicle_id}: {e}")
         # Fallback sur les données globales si erreur
+        is_active_vehicle = latest_data.get("vehicle_id") == vehicle_id
+        vehicle_history = list(telemetry_history.get(vehicle_id, [])) if is_active_vehicle else []
+        
         return {
-            "state": vehicle_state if latest_data.get("vehicle_id") == vehicle_id else "offline",
-            "data": latest_data.copy() if latest_data.get("vehicle_id") == vehicle_id else {"vehicle_id": vehicle_id},
-            "history": list(telemetry_history) if latest_data.get("vehicle_id") == vehicle_id else [],
-            "timestamp": datetime.utcnow().isoformat()
+            "state": vehicle_state if is_active_vehicle else "offline",
+            "data": latest_data.copy() if is_active_vehicle else {"vehicle_id": vehicle_id},
+            "history": vehicle_history,
+            "timestamp": datetime.now().isoformat()
         }
