@@ -161,6 +161,20 @@ def on_message(client, userdata, msg):
         topic = msg.topic
         payload = msg.payload.decode('utf-8')
         
+        # ============================================================================
+        # FILTRE: Accepter UNIQUEMENT les topics wincan/device1, wincan/device2, etc.
+        # Ignorer les topics individuels comme wincan/OxyCrnt, wincan/abs_throttle_position_e
+        # ============================================================================
+        if not topic.startswith("wincan/device"):
+            # Ignorer silencieusement les topics individuels (pas de logs pour éviter le spam)
+            return
+        
+        # Vérifier que c'est bien wincan/deviceX où X est un nombre
+        import re
+        if not re.match(r'^wincan/device\d+$', topic):
+            # Topic non valide (ex: wincan/device_test, wincan/deviceABC)
+            return
+        
         last_message_time = time.time()
         vehicle_state = "running"
         
