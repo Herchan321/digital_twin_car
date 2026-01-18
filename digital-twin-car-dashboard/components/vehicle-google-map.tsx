@@ -21,17 +21,19 @@ export function VehicleGoogleMap({ latitude, longitude, speed, temperature, batt
   // Charger le script Google Maps
   useEffect(() => {
     const loadGoogleMaps = () => {
+      // Le script est déjà chargé dans layout.tsx
       if (window.google && window.google.maps) {
         setIsLoaded(true)
         return
       }
-
-      const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-      script.async = true
-      script.defer = true
-      script.onload = () => setIsLoaded(true)
-      document.head.appendChild(script)
+      
+      // Attendre que le script chargé globalement soit prêt
+      const checkGoogleMaps = setInterval(() => {
+        if (window.google && window.google.maps) {
+          setIsLoaded(true)
+          clearInterval(checkGoogleMaps)
+        }
+      }, 100)
     }
 
     loadGoogleMaps()

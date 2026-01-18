@@ -65,6 +65,18 @@ class ModelManager:
             # Conversion en DataFrame pour faciliter la manipulation
             df = pd.DataFrame(telemetry_data)
             
+            # Mapping des colonnes DB vers les noms attendus par le code
+            # La DB a vehicle_speed, coolant_temperature, engine_load etc.
+            # Le code attend speed, temperature, etc.
+            column_mapping = {
+                'vehicle_speed': 'speed', 
+                'coolant_temperature': 'temperature',
+                'engine_load': 'load',
+                'throttle_position': 'throttle',
+                'intake_pressure': 'pressure'
+            }
+            df = df.rename(columns=column_mapping)
+
             # --- ADAPTATION REQUISE ---
             # Remplacez cette section par les features exactes utilisées lors de l'entraînement
             # Exemple de features agrégées sur la fenêtre de données :
@@ -121,19 +133,22 @@ class ModelManager:
         Si un modèle 'eco_score' existe, il est utilisé.
         Sinon, une heuristique basée sur le RPM et la vitesse est utilisée.
         """
-        # 1. Essayer d'utiliser un modèle ML dédié si disponible
-        if "eco_score" in self.models:
-            try:
-                # Logique similaire à predict_driving_score...
-                pass 
-            except:
-                pass
-
-        # 2. Fallback: Heuristique simple
         if not telemetry_data:
-            return 80.0 # Valeur par défaut
+            return 80.0
             
         df = pd.DataFrame(telemetry_data)
+        
+        # Mapping colonnes
+        column_mapping = {
+            'vehicle_speed': 'speed', 
+            'coolant_temperature': 'temperature',
+            'rpm': 'rpm'
+        }
+        df = df.rename(columns=column_mapping)
+        
+        # 1. Essayer d'utiliser un modèle ML dédié si disponible
+        if "eco_score" in self.models:
+            pass
         
         score = 100.0
         
@@ -174,6 +189,15 @@ class ModelManager:
             return anomalies
             
         df = pd.DataFrame(telemetry_data)
+
+        # Mapping des colonnes (même si déjà fait ailleurs, par sécurité pour cette méthode)
+        column_mapping = {
+            'vehicle_speed': 'speed', 
+            'coolant_temperature': 'temperature',
+            'control_module_voltage': 'voltage',
+            'engine_load': 'load'
+        }
+        df = df.rename(columns=column_mapping)
         
         # 1. Utilisation d'un modèle ML (Isolation Forest, Autoencoder...) si disponible
         if "anomaly_detection" in self.models:
@@ -268,7 +292,15 @@ class ModelManager:
             return float(np.clip(risk, 0, 100))
 
         df = pd.DataFrame(telemetry_data)
-
+        
+        # Mapping colonnes pour cette méthode aussi
+        column_mapping = {
+            'coolant_temperature': 'temperature',
+            'control_module_voltage': 'voltage',
+            'engine_load': 'load'
+        }
+        df = df.rename(columns=column_mapping)
+        
         # Facteur 2: Signes avant-coureurs dans la télémétrie
         
         # Surchauffe (même si pas encore en anomalie critique)
@@ -313,6 +345,13 @@ class ModelManager:
             return { "type": driver_type, "metrics": metrics }
 
         df = pd.DataFrame(telemetry_data)
+        
+        # Mapping colonnes pour le profil conducteur
+        column_mapping = {
+            'vehicle_speed': 'speed', 
+            'rpm': 'rpm'
+        }
+        df = df.rename(columns=column_mapping)
         
         # 1. Calcul des métriques (Heuristiques intelligentes)
         
@@ -397,6 +436,11 @@ class ModelManager:
 
         if telemetry_data:
             df = pd.DataFrame(telemetry_data)
+            
+            # Mapping pour s'assurer que 'temperature' existe
+            if 'coolant_temperature' in df.columns:
+                df = df.rename(columns={'coolant_temperature': 'temperature'})
+                
             if 'temperature' in df.columns:
                 current_temp = float(df['temperature'].iloc[0]) # Plus récent
                 
@@ -454,6 +498,12 @@ class ModelManager:
         """
         Analyse la consommation de carburant (Réel vs Prédit) sur les 7 derniers jours.
         """
+        # Mapping si besoin pour futures utilisations
+        if telemetry_data:
+             df = pd.DataFrame(telemetry_data)
+             if 'vehicle_speed' in df.columns:
+                 df = df.rename(columns={'vehicle_speed': 'speed'})
+        
         # Idéalement, cela viendrait d'une base de données historique agrégée par jour.
         # Ici, on génère des données réalistes basées sur le score éco actuel.
         

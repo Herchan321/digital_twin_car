@@ -132,7 +132,14 @@ export function AlertsDashboard() {
       setLoading(true)
       const allAlerts: Alert[] = []
 
-      for (const vehicle of vehicles) {
+      // S'assurer que vehicles est un tableau
+      const currentVehicles = Array.isArray(vehicles) ? vehicles : []
+      if (currentVehicles.length === 0) {
+         setLoading(false)
+         return
+      }
+
+      for (const vehicle of currentVehicles) {
         try {
           const res = await fetch(`/api/predictions?vehicleId=${vehicle.id}`)
           if (res.ok) {

@@ -60,12 +60,25 @@ export function VehicleMap3D({ telemetryData }: VehicleMap3DProps) {
   // Position de fallback (géolocalisation du navigateur)
   const [location, setLocation] = useState<GeolocationData | null>(null)
 
+  // Attendre que Google Maps soit chargé (via layout.tsx)
   useEffect(() => {
-    const initMap = () => {
-      if (!mapRef.current || !window.google) return
-      if (!location) return
+    const checkGoogleMaps = setInterval(() => {
+        if (window.google && window.google.maps) {
+            clearInterval(checkGoogleMaps)
+            // Déclencher le rendu une fois l'API prête
+            if (mapRef.current && location && !map) {
+                initMap()
+            }
+        }
+    }, 500)
+    return () => clearInterval(checkGoogleMaps)
+  }, [location, map])
 
-      const mapInstance = new window.google.maps.Map(mapRef.current, {
+  const initMap = () => {
+    if (!mapRef.current || !window.google) return
+    if (!location) return
+
+    const mapInstance = new window.google.maps.Map(mapRef.current, {
         center: { lat: location.lat, lng: location.lng },
         zoom: 18,
         mapTypeId: 'satellite',
@@ -90,18 +103,6 @@ export function VehicleMap3D({ telemetryData }: VehicleMap3DProps) {
       setMarker(markerInstance)
       setIsLoaded(true)
     }
-
-    if (window.google && window.google.maps) {
-      initMap()
-    } else {
-      const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=maps,marker`
-      script.async = true
-      script.defer = true
-      script.onload = initMap
-      document.head.appendChild(script)
-    }
-  }, [location])
 
   // Fonction pour récupérer la position depuis Traccar
   const fetchTraccarPosition = async () => {

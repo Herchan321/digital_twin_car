@@ -34,6 +34,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DeviceManager } from "@/components/device-manager"
 import { AssignmentManager } from "@/components/assignment-manager"
 import { getVehicles, createVehicle, getActiveAssignments, supabase, type Vehicle } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
+import { useVehicle } from "@/lib/vehicle-context"
 import { useToast } from "@/hooks/use-toast"
 
 export default function FleetPage() {
@@ -42,11 +44,21 @@ export default function FleetPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  
+  // Using vehicle context
+  const { setSelectedVehicle: setContextSelectedVehicle } = useVehicle()
+  const router = useRouter()
+  
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
   const [editName, setEditName] = useState("")
   const [editVin, setEditVin] = useState("")
   const [editStatus, setEditStatus] = useState("active")
   const { toast } = useToast()
+
+  const handleViewDashboard = (vehicle: Vehicle) => {
+    setContextSelectedVehicle(vehicle)
+    router.push('/dashboard')
+  }
 
   useEffect(() => {
     loadVehicles()
@@ -91,7 +103,7 @@ export default function FleetPage() {
     const vehicleData = {
       name: formData.get("name") as string,
       vin: formData.get("vin") as string || null,
-      status: 'active'
+      status: 'active' as 'active' | 'inactive' | 'maintenance'
     }
     
     console.log('📝 Données du véhicule:', vehicleData)
@@ -138,7 +150,7 @@ export default function FleetPage() {
     const vehicleData = {
       name: editName,
       vin: editVin || null,
-      status: editStatus
+      status: editStatus as 'active' | 'inactive' | 'maintenance'
     }
     
     console.log('📝 Données de mise à jour:', vehicleData)
@@ -370,7 +382,7 @@ export default function FleetPage() {
                           Définir comme principal
                         </Button>
                       )}
-                      <Button variant="outline" size="sm" className="h-7 text-xs">
+                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewDashboard(vehicle)}>
                         Voir Dashboard
                       </Button>
                     </CardFooter>

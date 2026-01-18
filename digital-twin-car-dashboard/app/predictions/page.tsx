@@ -58,79 +58,145 @@ const ANOMALIES = [
 
 export default function PredictionsPage() {
   const { selectedVehicle } = useVehicle()
-  const { vehicles, fetchVehicles } = useVehicleStore()
-  const [driverScore, setDriverScore] = useState(78)
-  const [breakdownProb, setBreakdownProb] = useState(12)
-  const [ecoScore, setEcoScore] = useState(82)
-  const [anomalies, setAnomalies] = useState<any[]>(ANOMALIES)
-  const [driverProfile, setDriverProfile] = useState<any[]>(DRIVER_PROFILE_DATA)
-  const [driverType, setDriverType] = useState("Balanced")
-  const [engineTempData, setEngineTempData] = useState<any[]>(ENGINE_TEMP_PREDICTION)
-  const [fuelData, setFuelData] = useState<any[]>(FUEL_CONSUMPTION_DATA)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  
+  // States for data
+  const [driverScore, setDriverScore] = useState<number | null>(null)
+  const [breakdownProb, setBreakdownProb] = useState<number | null>(null)
+  const [ecoScore, setEcoScore] = useState<number | null>(null)
+  const [anomalies, setAnomalies] = useState<any[]>([])
+  const [driverProfile, setDriverProfile] = useState<any[]>([])
+  const [driverType, setDriverType] = useState<string>("")
+  const [engineTempData, setEngineTempData] = useState<any[]>([])
+  const [fuelData, setFuelData] = useState<any[]>([])
+  const [hasData, setHasData] = useState(false)
 
-  // Fetch vehicles on mount
-  useEffect(() => {
-    fetchVehicles()
-  }, [])
+  // Fetch vehicles on mount deleted
 
-  // Fetch predictions when vehicles are loaded
+  // Fetch predictions when vehicle is selected
   useEffect(() => {
-    const fetchPredictions = (vehicleId: string | number) => {
+    const fetchPredictions = async (vehicleId: string | number) => {
       console.log(`Fetching predictions for vehicle ${vehicleId}...`)
-      fetch(`/api/predictions?vehicleId=${vehicleId}`)
-        .then(res => {
-          if (!res.ok) throw new Error(res.statusText)
-          return res.json()
-        })
-        .then(data => {
-          console.log("Predictions received:", data)
-          if (data.performance_score) {
+      setLoading(true)
+      setError(null)
+      setHasData(false)
+      
+      try {
+        const res = await fetch(`http://localhost:8000/predictions/${vehicleId}`)
+        
+        if (res.status === 404) {
+             console.log("No prediction data found for this vehicle")
+             setHasData(false)
+             setLoading(false)
+             return
+        }
+        
+        if (!res.ok) throw new Error(res.statusText)
+        
+        const data = await res.json()
+        console.log("Predictions received:", data)
+         
+        setHasData(true)
+        if (data.performance_score) {
             setDriverScore(Math.round(data.performance_score))
-          }
-          if (data.eco_score) {
+        }
+        if (data.eco_score) {
             setEcoScore(Math.round(data.eco_score))
-          }
-          // Toujours mettre à jour les anomalies, même si la liste est vide
-          setAnomalies(data.anomalies || [])
+        }
+          // Toujours mettre à jour les anomalies
+        setAnomalies(data.anomalies || [])
           
-          if (data.driver_profile) {
+        if (data.driver_profile) {
             setDriverType(data.driver_profile.type)
             setDriverProfile(data.driver_profile.metrics)
-          }
+        }
           
-          if (data.breakdown_risk !== undefined) {
-            setBreakdownProb(data.breakdown_risk)
-          }
+        if (data.breakdown_risk !== undefined) {
+             setBreakdownProb(data.breakdown_risk)
+        }
 
-          if (data.future_engine_temperature && data.future_engine_temperature.length > 0) {
-            setEngineTempData(data.future_engine_temperature)
-          }
+        if (data.future_engine_temperature && data.future_engine_temperature.length > 0) {
+             setEngineTempData(data.future_engine_temperature)
+         }
 
-          if (data.fuel_consumption_analysis && data.fuel_consumption_analysis.length > 0) {
-            setFuelData(data.fuel_consumption_analysis)
-          }
-        })
-        .catch(err => console.error("Failed to fetch predictions:", err))
+        if (data.fuel_consumption_analysis && data.fuel_consumption_analysis.length > 0) {
+             setFuelData(data.fuel_consumption_analysis)
+        }
+      } catch (err) {
+        console.error("Failed to fetch predictions:", err)
+        setError("Impossible de charger les prédictions")
+      } finally {
+        setLoading(false)
+      }
     }
 
-    if (vehicles.length > 0) {
-      fetchPredictions(vehicles[0].id)
+    if (selectedVehicle) {
+      fetchPredictions(selectedVehicle.id)
     } else {
-      // Fallback pour le développement si aucun véhicule n'est trouvé
-      // On essaie avec un ID par défaut pour tester l'API
-      fetchPredictions("vehicle1")
+        setHasData(false)
     }
-  }, [vehicles])
+  }, [selectedVehicle])
 
-  // Animation effect for scores (removed for real data)
-  /*
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setBreakdownProb(prev => Math.min(100, Math.max(0, prev + (Math.random() - 0.5) * 2)))
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [])
-  */
+  if (!selectedVehicle) {
+    return (
+      <DashboardLayout>
+        <div className="p-6 flex items-center justify-center h-[80vh]">
+          <Card className="max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                 <AlertTriangle className="h-5 w-5 text-amber-500" />
+                 Aucun véhicule sélectionné
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                 Veuillez sélectionner un véhicule dans la page "Ma Flotte" pour voir ses prédictions.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (loading) {
+     return (
+        <DashboardLayout>
+           <div className="p-6 flex items-center justify-center h-[80vh]">
+             <div className="flex flex-col items-center gap-4">
+               <Activity className="h-10 w-10 animate-spin text-primary" />
+               <p>Analyse des données en cours...</p>
+             </div>
+           </div>
+        </DashboardLayout>
+     )
+  }
+
+  if (!hasData) {
+     return (
+        <DashboardLayout>
+           <div className="p-6 flex items-center justify-center h-[80vh]">
+             <Card className="max-w-md">
+                <CardHeader>
+                   <CardTitle className="flex items-center gap-2">
+                     <AlertCircle className="h-5 w-5 text-muted-foreground" />
+                     Pas de données suffisantes
+                   </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">
+                    Le véhicule sélectionné n'a pas encore assez de données de télémétrie pour générer des prédictions IA fiables.
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                     Conduisez le véhicule avec le boîtier connecté pour accumuler des données.
+                  </p>
+                </CardContent>
+             </Card>
+           </div>
+        </DashboardLayout>
+     )
+  }
 
   return (
     <DashboardLayout>

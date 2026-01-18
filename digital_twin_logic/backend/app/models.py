@@ -126,6 +126,12 @@ class PredictionResponse(BaseModel):
     next_maintenance_due: str
     performance_score: float
     estimated_energy_consumption: Optional[float] = None
+    eco_score: Optional[float] = None
+    anomalies: List[Anomaly] = []
+    driver_profile: Optional[DriverProfile] = None
+    breakdown_risk: Optional[float] = None
+    future_engine_temperature: List[EngineTempPrediction] = []
+    fuel_consumption_analysis: List[FuelConsumptionData] = []
 
 # ============================================================================
 # MODÈLES POUR GESTION DYNAMIQUE DES DEVICES OBD-II

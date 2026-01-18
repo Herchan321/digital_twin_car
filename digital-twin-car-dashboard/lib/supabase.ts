@@ -8,6 +8,7 @@ export interface Vehicle {
   name: string
   vin?: string | null
   status: 'active' | 'inactive' | 'maintenance'
+  is_favorite?: boolean
   created_at?: string
   updated_at?: string
 }

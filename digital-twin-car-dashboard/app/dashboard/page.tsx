@@ -7,7 +7,7 @@ import { VehicleMap3D } from "@/components/vehicle-map-3d"  // Nouveau composant
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Wifi, WifiOff, Play, Pause, Zap, Gauge, Thermometer, Battery, AlertTriangle, MapPin, Map } from "lucide-react"
+import { Wifi, WifiOff, Play, Pause, Zap, Gauge, Thermometer, Battery, AlertTriangle, MapPin, Map, Activity } from "lucide-react"
 import { useVehicle } from "@/lib/vehicle-context"
 
 interface TelemetryData {
@@ -44,6 +44,7 @@ export default function DashboardPage() {
   const [alerts, setAlerts] = useState<string[]>([])
   const [prediction, setPrediction] = useState<string>("No issues detected")
   const [showMap, setShowMap] = useState(true)
+  const [loadingData, setLoadingData] = useState(false)
   const wsRef = useRef<WebSocket | null>(null)
 
   const vehicleId = selectedVehicle?.id?.toString() || "1" 
@@ -51,14 +52,28 @@ export default function DashboardPage() {
   useEffect(() => setIsMounted(true), [])
 
   useEffect(() => {
+    // Si pas de véhicule sélectionné, on ne charge rien
+    if (!selectedVehicle) return;
+
     console.log(`🔥 useEffect Dashboard déclenché - Vehicle ID sélectionné: ${vehicleId}, Type: ${typeof vehicleId}`)
     
     // Charger les données initiales via REST API
     async function loadInitialData() {
       try {
+        setLoadingData(true)
+        // Reset telemetry when switching vehicles
+        setTelemetry(null)
+        
         const url = `http://localhost:8000/telemetry/latest?vehicle_id=${vehicleId}`
         console.log(`📡 Chargement initial pour véhicule ID: ${vehicleId}`)
         const response = await fetch(url)
+        
+        if (!response.ok) {
+           console.log(`⚠️ Aucune donnée initiale trouvée (Status: ${response.status})`)
+           setTelemetry(null)
+           return
+        }
+
         const data = await response.json()
         
         console.log(`📦 Données reçues du backend:`, data)
@@ -74,9 +89,14 @@ export default function DashboardPage() {
           } else {
             console.log(`❌ Données ignorées: vehicle_id=${data.data.vehicle_id} ne correspond pas à ${vehicleId}`)
           }
+        } else {
+             setTelemetry(null)
         }
       } catch (error) {
         console.error("❌ Erreur chargement initial:", error)
+        setTelemetry(null)
+      } finally {
+        setLoadingData(false)
       }
     }
 
@@ -215,6 +235,34 @@ useEffect(() => {
               </Button>
             </CardContent>
           </Card>
+        </div>
+      ) : loadingData ? (
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="flex flex-col items-center gap-4">
+             <Activity className="h-10 w-10 animate-spin text-primary" />
+             <p className="text-muted-foreground">Chargement des données...</p>
+          </div>
+        </div>
+      ) : !telemetry ? (
+        <div className="flex items-center justify-center h-[60vh]">
+           <Card className="max-w-md">
+             <CardHeader>
+               <CardTitle className="flex items-center gap-2">
+                 <AlertTriangle className="h-5 w-5 text-amber-500" />
+                 Pas de données disponibles
+               </CardTitle>
+             </CardHeader>
+             <CardContent>
+               <p className="text-muted-foreground mb-4">
+                 Ce véhicule n'a transmis aucune donnée de télémétrie. Assurez-vous que le simulateur ou le boîtier OBD est connecté.
+               </p>
+               <div className="flex gap-2">
+                 <Button variant="outline" onClick={() => window.location.href = '/fleet'} className="flex-1">
+                   Retour
+                 </Button>
+               </div>
+             </CardContent>
+           </Card>
         </div>
       ) : (
         <div className="space-y-6">
