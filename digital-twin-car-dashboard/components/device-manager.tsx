@@ -58,8 +58,8 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
       setDevices(data)
     } catch (error: any) {
       toast({
-        title: "Erreur",
-        description: `Impossible de charger les devices: ${error.message}`,
+        title: "Error",
+        description: `Unable to load devices: ${error.message}`,
         variant: "destructive",
       })
     } finally {
@@ -83,13 +83,13 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
       setIsCreateDialogOpen(false)
       
       toast({
-        title: "Device créé",
-        description: `Le device ${newDevice.device_code} a été créé avec succès.`,
+        title: "Device created",
+        description: `The device ${newDevice.device_code} has been created successfully.`,
       })
     } catch (error: any) {
       toast({
-        title: "Erreur",
-        description: `Erreur lors de la création: ${error.message}`,
+        title: "Error",
+        description: `Error during creation: ${error.message}`,
         variant: "destructive",
       })
     }
@@ -149,9 +149,9 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <Badge variant="default" className="bg-green-500">Actif</Badge>
+        return <Badge variant="default" className="bg-green-500">Active</Badge>
       case 'inactive':
-        return <Badge variant="secondary">Inactif</Badge>
+        return <Badge variant="secondary">Inactive</Badge>
       case 'maintenance':
         return <Badge variant="outline" className="border-orange-500 text-orange-500">Maintenance</Badge>
       default:
@@ -173,9 +173,9 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-semibold">Devices OBD-II</h3>
+          <h3 className="text-lg font-semibold">OBD-II Devices</h3>
           <p className="text-sm text-muted-foreground">
-            {devices.length} device(s) enregistré(s)
+            {devices.length} device(s) registered
           </p>
         </div>
         
@@ -183,20 +183,20 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              Ajouter un device
+              Add a device
             </Button>
           </DialogTrigger>
           <DialogContent>
             <form onSubmit={handleCreateDevice}>
               <DialogHeader>
-                <DialogTitle>Ajouter un nouveau device</DialogTitle>
+                <DialogTitle>Add a new device</DialogTitle>
                 <DialogDescription>
-                  Enregistrez un nouveau boîtier OBD-II (ESP32 MeatPI).
+                  Register a new OBD-II device (ESP32 MeatPI).
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="device_code">Code du device *</Label>
+                  <Label htmlFor="device_code">Device code *</Label>
                   <Input
                     id="device_code"
                     name="device_code"
@@ -204,11 +204,11 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
                     required
                   />
                   <p className="text-xs text-muted-foreground">
-                    Identifiant unique (ex: device1, device2...)
+                    Unique identifier (e.g.: device1, device2...)
                   </p>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="mqtt_topic">Topic MQTT *</Label>
+                  <Label htmlFor="mqtt_topic">MQTT Topic *</Label>
                   <Input
                     id="mqtt_topic"
                     name="mqtt_topic"
@@ -216,7 +216,7 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
                     required
                   />
                   <p className="text-xs text-muted-foreground">
-                    Topic MQTT complet (doit correspondre au code)
+                    Full MQTT topic (must match the code)
                   </p>
                 </div>
                 <div className="grid gap-2">
@@ -224,18 +224,18 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
                   <Input
                     id="description"
                     name="description"
-                    placeholder="Ex: ESP32 MeatPI Principal"
+                    placeholder="Ex: ESP32 MeatPI Primary"
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="status">Statut</Label>
+                  <Label htmlFor="status">Status</Label>
                   <Select name="status" defaultValue="active">
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">Actif</SelectItem>
-                      <SelectItem value="inactive">Inactif</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
                       <SelectItem value="maintenance">Maintenance</SelectItem>
                     </SelectContent>
                   </Select>
@@ -243,9 +243,9 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                  Annuler
+                  Cancel
                 </Button>
-                <Button type="submit">Créer</Button>
+                <Button type="submit">Create</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -256,13 +256,13 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
         <Card>
           <CardContent className="flex flex-col items-center justify-center h-48 text-center">
             <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Aucun device enregistré</p>
+            <p className="text-muted-foreground">No device registered</p>
             <Button
               variant="link"
               onClick={() => setIsCreateDialogOpen(true)}
               className="mt-2"
             >
-              Créer votre premier device
+              Create your first device
             </Button>
           </CardContent>
         </Card>
@@ -307,12 +307,12 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
                         }}
                       >
                         <Settings className="mr-2 h-4 w-4" />
-                        Modifier
+                        Edit
                       </DropdownMenuItem>
                       {onDeviceSelect && (
                         <DropdownMenuItem onClick={() => onDeviceSelect(device)}>
                           <Activity className="mr-2 h-4 w-4" />
-                          Voir assignments
+                          View assignments
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuSeparator />
@@ -321,7 +321,7 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
                         className="text-red-600"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Supprimer
+                        Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -338,21 +338,21 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
           <DialogContent>
             <form onSubmit={handleUpdateDevice}>
               <DialogHeader>
-                <DialogTitle>Modifier le device</DialogTitle>
+                <DialogTitle>Edit device</DialogTitle>
                 <DialogDescription>
-                  Modifiez les paramètres du device {selectedDevice.device_code}
+                  Modify device parameters {selectedDevice.device_code}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label>Code du device</Label>
+                  <Label>Device code</Label>
                   <Input value={selectedDevice.device_code} disabled />
-                  <p className="text-xs text-muted-foreground">Le code ne peut pas être modifié</p>
+                  <p className="text-xs text-muted-foreground">The code cannot be modified</p>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Topic MQTT</Label>
+                  <Label>MQTT Topic</Label>
                   <Input value={selectedDevice.mqtt_topic} disabled />
-                  <p className="text-xs text-muted-foreground">Le topic ne peut pas être modifié</p>
+                  <p className="text-xs text-muted-foreground">The topic cannot be modified</p>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="edit_description">Description</Label>
@@ -363,14 +363,14 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="edit_status">Statut</Label>
+                  <Label htmlFor="edit_status">Status</Label>
                   <Select name="status" defaultValue={selectedDevice.status}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">Actif</SelectItem>
-                      <SelectItem value="inactive">Inactif</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
                       <SelectItem value="maintenance">Maintenance</SelectItem>
                     </SelectContent>
                   </Select>
@@ -385,9 +385,9 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
                     setSelectedDevice(null)
                   }}
                 >
-                  Annuler
+                  Cancel
                 </Button>
-                <Button type="submit">Sauvegarder</Button>
+                <Button type="submit">Save</Button>
               </DialogFooter>
             </form>
           </DialogContent>

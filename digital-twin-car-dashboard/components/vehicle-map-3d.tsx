@@ -90,8 +90,8 @@ export function VehicleMap3D({ telemetryData }: VehicleMap3DProps) {
         position: { lat: location.lat, lng: location.lng },
         map: mapInstance,
         title: isTraccarConnected 
-          ? `Véhicule Traccar (Device ${DEVICE_ID})` 
-          : 'Position de fallback',
+          ? `Traccar Vehicle (Device ${DEVICE_ID})` 
+          : 'Fallback position',
         icon: {
           url: 'https://cdn-icons-png.flaticon.com/512/741/741407.png',
           scaledSize: new window.google.maps.Size(60, 60),

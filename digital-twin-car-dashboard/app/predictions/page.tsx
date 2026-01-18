@@ -146,12 +146,12 @@ export default function PredictionsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                  <AlertTriangle className="h-5 w-5 text-amber-500" />
-                 Aucun véhicule sélectionné
+                 No vehicle selected
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground mb-4">
-                 Veuillez sélectionner un véhicule dans la page "Ma Flotte" pour voir ses prédictions.
+                 Please select a vehicle from the "My Fleet" page to see its predictions.
               </p>
             </CardContent>
           </Card>
@@ -166,7 +166,7 @@ export default function PredictionsPage() {
            <div className="p-6 flex items-center justify-center h-[80vh]">
              <div className="flex flex-col items-center gap-4">
                <Activity className="h-10 w-10 animate-spin text-primary" />
-               <p>Analyse des données en cours...</p>
+               <p>Analyzing data in progress...</p>
              </div>
            </div>
         </DashboardLayout>
@@ -181,15 +181,15 @@ export default function PredictionsPage() {
                 <CardHeader>
                    <CardTitle className="flex items-center gap-2">
                      <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                     Pas de données suffisantes
+                     Insufficient data
                    </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground">
-                    Le véhicule sélectionné n'a pas encore assez de données de télémétrie pour générer des prédictions IA fiables.
+                    The selected vehicle does not yet have enough telemetry data to generate reliable AI predictions.
                   </p>
                   <p className="text-sm text-muted-foreground mt-2">
-                     Conduisez le véhicule avec le boîtier connecté pour accumuler des données.
+                     Drive the vehicle with the connected device to accumulate data.
                   </p>
                 </CardContent>
              </Card>

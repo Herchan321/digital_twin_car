@@ -32,7 +32,7 @@ const MOCK_ALERTS: Alert[] = [
     vehicleId: "1",
     vehicleName: "Peugeot 208",
     code: "P0300",
-    message: "Ratés d'allumage détectés (Cylindre aléatoire)",
+    message: "Misfires detected (Random cylinder)",
     severity: "critical",
     status: "active",
     timestamp: "2023-12-23T10:30:00",
@@ -43,7 +43,7 @@ const MOCK_ALERTS: Alert[] = [
     vehicleId: "1",
     vehicleName: "Peugeot 208",
     code: "BAT-LOW",
-    message: "Tension batterie faible (11.8V)",
+    message: "Low battery voltage (11.8V)",
     severity: "warning",
     status: "active",
     timestamp: "2023-12-23T09:15:00",
@@ -54,7 +54,7 @@ const MOCK_ALERTS: Alert[] = [
     vehicleId: "2",
     vehicleName: "Renault Clio",
     code: "OIL-SERV",
-    message: "Vidange recommandée prochainement",
+    message: "Oil change recommended soon",
     severity: "info",
     status: "acknowledged",
     timestamp: "2023-12-22T14:20:00",
@@ -65,7 +65,7 @@ const MOCK_ALERTS: Alert[] = [
     vehicleId: "3",
     vehicleName: "Citroën C3",
     code: "SEC-DOOR",
-    message: "Portière arrière gauche mal fermée",
+    message: "Rear left door not properly closed",
     severity: "warning",
     status: "resolved",
     timestamp: "2023-12-22T18:45:00",
@@ -76,7 +76,7 @@ const MOCK_ALERTS: Alert[] = [
     vehicleId: "1",
     vehicleName: "Peugeot 208",
     code: "TEMP-HIGH",
-    message: "Température liquide refroidissement élevée (105°C)",
+    message: "High coolant temperature (105°C)",
     severity: "critical",
     status: "resolved",
     timestamp: "2023-12-21T16:10:00",
@@ -225,49 +225,49 @@ export function AlertsDashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Alertes Actives</CardTitle>
+            <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total - stats.resolved}</div>
             <p className="text-xs text-muted-foreground">
-              Sur {stats.total} alertes totales
+              Out of {stats.total} total alerts
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Critiques</CardTitle>
+            <CardTitle className="text-sm font-medium">Critical</CardTitle>
             <XCircle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-500">{stats.critical}</div>
             <p className="text-xs text-muted-foreground">
-              Nécessitent une attention immédiate
+              Require immediate attention
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avertissements</CardTitle>
+            <CardTitle className="text-sm font-medium">Warnings</CardTitle>
             <AlertTriangle className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-500">{stats.warning}</div>
             <p className="text-xs text-muted-foreground">
-              À surveiller
+              To monitor
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Résolues</CardTitle>
+            <CardTitle className="text-sm font-medium">Resolved</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-500">{stats.resolved}</div>
             <p className="text-xs text-muted-foreground">
-              Problèmes traités
+              Issues resolved
             </p>
           </CardContent>
         </Card>
@@ -278,7 +278,7 @@ export function AlertsDashboard() {
         <div className="relative w-full md:w-96">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher une alerte..."
+            placeholder="Search an alert..."
             className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -293,9 +293,9 @@ export function AlertsDashboard() {
               </div>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Toutes sévérités</SelectItem>
-              <SelectItem value="critical">Critique</SelectItem>
-              <SelectItem value="warning">Avertissement</SelectItem>
+              <SelectItem value="all">All severities</SelectItem>
+              <SelectItem value="critical">Critical</SelectItem>
+              <SelectItem value="warning">Warning</SelectItem>
               <SelectItem value="info">Info</SelectItem>
             </SelectContent>
           </Select>
@@ -304,10 +304,10 @@ export function AlertsDashboard() {
               <SelectValue placeholder="Statut" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tous statuts</SelectItem>
+              <SelectItem value="all">All statuses</SelectItem>
               <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="resolved">Résolue</SelectItem>
-              <SelectItem value="acknowledged">Acquittée</SelectItem>
+              <SelectItem value="resolved">Resolved</SelectItem>
+              <SelectItem value="acknowledged">Acknowledged</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -347,11 +347,11 @@ export function AlertsDashboard() {
               <div className="flex items-center gap-2">
                 {alert.status === "active" && (
                   <Button variant="outline" size="sm">
-                    Acquitter
+                    Acknowledge
                   </Button>
                 )}
                 <Button variant="ghost" size="sm">
-                  Détails
+                  Details
                 </Button>
               </div>
             </div>
@@ -361,7 +361,7 @@ export function AlertsDashboard() {
         {filteredAlerts.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
             <CheckCircle2 className="h-12 w-12 mx-auto mb-4 opacity-20" />
-            <p>Aucune alerte trouvée correspondant à vos critères.</p>
+            <p>No alerts found matching your criteria.</p>
           </div>
         )}
       </div>

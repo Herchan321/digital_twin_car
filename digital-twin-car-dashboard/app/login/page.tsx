@@ -26,7 +26,7 @@ export default function LoginPage() {
       await signInWithEmail(email, password)
       router.push("/dashboard")
     } catch (err: any) {
-      setError(err.message || "Erreur lors de la connexion")
+      setError(err.message || "Error during login")
     } finally {
       setIsLoading(false)
     }
@@ -38,7 +38,7 @@ export default function LoginPage() {
     try {
       await signInWithGoogle()
     } catch (err: any) {
-      setError(err.message || "Erreur lors de la connexion avec Google")
+      setError(err.message || "Error during Google login")
       setIsLoading(false)
     }
   }
@@ -49,7 +49,7 @@ export default function LoginPage() {
         <div className="text-center">
           <Car className="mx-auto h-12 w-12 text-blue-500" />
           <h2 className="mt-6 text-3xl font-bold text-gray-900">
-            Digital Twin Car
+            DriveCare
           </h2>
           <p className="mt-2 text-sm text-gray-600">
             Sign in to access your dashboard

@@ -83,7 +83,7 @@ export default function SignupPage() {
             Create an account
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Join Digital Twin Car
+            Join DriveCare
           </p>
         </div>
 

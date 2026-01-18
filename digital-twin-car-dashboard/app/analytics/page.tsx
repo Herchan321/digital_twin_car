@@ -199,7 +199,7 @@ export default function AnalyticsPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-foreground">{title}</CardTitle>
-              <CardDescription className="text-muted-foreground">Temps réel</CardDescription>
+              <CardDescription className="text-muted-foreground">Real-time</CardDescription>
             </div>
             {/* Afficher la dernière valeur à droite */}
             <div className="text-right">
@@ -251,7 +251,7 @@ export default function AnalyticsPage() {
           </div>
           {/* Indicateur du nombre de points */}
           <div className="mt-2 text-xs text-muted-foreground text-center">
-            {data.length} points • Défilement automatique
+            {data.length} points • Automatic scrolling
           </div>
         </CardContent>
       </Card>
@@ -266,15 +266,15 @@ export default function AnalyticsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-amber-500" />
-                Aucun véhicule sélectionné
+                No vehicle selected
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground mb-4">
-                Veuillez sélectionner un véhicule dans la barre latérale pour afficher ses analytics en temps réel.
+                Please select a vehicle from the sidebar to display its real-time analytics.
               </p>
               <Button onClick={() => window.location.href = '/fleet'} className="w-full">
-                Gérer la flotte
+                Manage fleet
               </Button>
             </CardContent>
           </Card>
@@ -287,7 +287,7 @@ export default function AnalyticsPage() {
               <h1 className="text-3xl font-bold text-foreground mb-2">
                 📊 Analytics - {selectedVehicle.name}
               </h1>
-              <p className="text-muted-foreground">Visualisation en direct des données du véhicule</p>
+              <p className="text-muted-foreground">Real-time vehicle data visualization</p>
               {selectedVehicle.vin && (
                 <p className="text-sm text-muted-foreground">VIN: {selectedVehicle.vin}</p>
               )}
@@ -313,16 +313,16 @@ export default function AnalyticsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="5min">Dernières 5 min</SelectItem>
-                <SelectItem value="15min">Dernières 15 min</SelectItem>
-                <SelectItem value="1hour">Dernière heure</SelectItem>
+                <SelectItem value="5min">Last 5 min</SelectItem>
+                <SelectItem value="15min">Last 15 min</SelectItem>
+                <SelectItem value="1hour">Last hour</SelectItem>
               </SelectContent>
             </Select>
             <Button variant="outline" size="sm" onClick={() => setIsPaused(!isPaused)} className="gap-2 border-border">
               {isPaused ? (
                 <>
                   <Play className="w-4 h-4" />
-                  Reprendre
+                  Resume
                 </>
               ) : (
                 <>
@@ -345,12 +345,12 @@ export default function AnalyticsPage() {
 
         {/* Grille des graphiques */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          <ChartCard title="Vitesse Véhicule (OBD-II)" data={speedData} color="#3b82f6" unit="km/h" />
-          <ChartCard title="Régime moteur (RPM)" data={rpmData} color="#06b6d4" unit="rpm" />
-          <ChartCard title="Température Liquide Refroidissement" data={coolantTempData} color="#f59e0b" unit="°C" />
-          <ChartCard title="Charge Moteur" data={engineLoadData} color="#10b981" unit="%" />
-          <ChartCard title="Pression Rail Carburant" data={fuelPressureData} color="#8b5cf6" unit="kPa" />
-          <ChartCard title="Tension ECU" data={controlVoltageData} color="#f97316" unit="V" />
+          <ChartCard title="Vehicle Speed (OBD-II)" data={speedData} color="#3b82f6" unit="km/h" />
+          <ChartCard title="Engine Speed (RPM)" data={rpmData} color="#06b6d4" unit="rpm" />
+          <ChartCard title="Coolant Temperature" data={coolantTempData} color="#f59e0b" unit="°C" />
+          <ChartCard title="Engine Load" data={engineLoadData} color="#10b981" unit="%" />
+          <ChartCard title="Fuel Rail Pressure" data={fuelPressureData} color="#8b5cf6" unit="kPa" />
+          <ChartCard title="ECU Voltage" data={controlVoltageData} color="#f97316" unit="V" />
         </div>
       </div>
       )}

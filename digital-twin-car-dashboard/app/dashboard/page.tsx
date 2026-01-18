@@ -223,15 +223,15 @@ useEffect(() => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-amber-500" />
-                Aucun véhicule sélectionné
+                No vehicle selected
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground mb-4">
-                Veuillez sélectionner un véhicule dans la barre latérale pour afficher ses données en temps réel.
+                Please select a vehicle from the sidebar to display its real-time data.
               </p>
               <Button onClick={() => window.location.href = '/fleet'} className="w-full">
-                Gérer la flotte
+                Manage fleet
               </Button>
             </CardContent>
           </Card>
@@ -240,7 +240,7 @@ useEffect(() => {
         <div className="flex items-center justify-center h-[60vh]">
           <div className="flex flex-col items-center gap-4">
              <Activity className="h-10 w-10 animate-spin text-primary" />
-             <p className="text-muted-foreground">Chargement des données...</p>
+             <p className="text-muted-foreground">Loading data...</p>
           </div>
         </div>
       ) : !telemetry ? (
@@ -249,16 +249,16 @@ useEffect(() => {
              <CardHeader>
                <CardTitle className="flex items-center gap-2">
                  <AlertTriangle className="h-5 w-5 text-amber-500" />
-                 Pas de données disponibles
+                 No data available
                </CardTitle>
              </CardHeader>
              <CardContent>
                <p className="text-muted-foreground mb-4">
-                 Ce véhicule n'a transmis aucune donnée de télémétrie. Assurez-vous que le simulateur ou le boîtier OBD est connecté.
+                 This vehicle has not transmitted any telemetry data. Make sure the simulator or OBD device is connected.
                </p>
                <div className="flex gap-2">
                  <Button variant="outline" onClick={() => window.location.href = '/fleet'} className="flex-1">
-                   Retour
+                   Back
                  </Button>
                </div>
              </CardContent>
@@ -270,7 +270,7 @@ useEffect(() => {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold text-foreground mb-2">
-                {selectedVehicle.name} - Digital Twin
+                {selectedVehicle.name} - DriveCare
               </h1>
               <p className="text-muted-foreground">Real-time monitoring and status overview</p>
               {selectedVehicle.vin && (
@@ -292,10 +292,10 @@ useEffect(() => {
                 )}
               </div>
               
-              {/* Nouveau bouton pour basculer la vue carte */}
+              {/* Toggle map view button */}
               <Button variant="outline" size="sm" onClick={() => setShowMap(!showMap)}>
                 <Map className="w-4 h-4" />
-                {showMap ? 'Masquer Carte' : 'Afficher Carte'}
+                {showMap ? 'Hide Map' : 'Show Map'}
               </Button>
             
             <Button variant="outline" size="sm" onClick={() => setIsLiveMode(!isLiveMode)}>

@@ -34,8 +34,8 @@ export default function SettingsPage() {
       <div className="space-y-6 max-w-3xl">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Paramètres</h1>
-          <p className="text-muted-foreground">Personnalisez vos préférences d'affichage</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Settings</h1>
+          <p className="text-muted-foreground">Customize your display preferences</p>
         </div>
 
         {/* Appearance settings */}
@@ -43,17 +43,17 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-foreground">
               {theme === "dark" || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-              Apparence
+              Appearance
             </CardTitle>
-            <CardDescription className="text-muted-foreground">Choisissez le thème visuel</CardDescription>
+            <CardDescription className="text-muted-foreground">Choose your visual theme</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label htmlFor="theme" className="text-foreground">
-                  Mode Clair
+                  Light Mode
                 </Label>
-                <p className="text-sm text-muted-foreground">Activer le mode clair pour l'interface</p>
+                <p className="text-sm text-muted-foreground">Enable light mode for the interface</p>
               </div>
               <Switch
                 id="theme"

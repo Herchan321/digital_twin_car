@@ -71,8 +71,8 @@ export default function FleetPage() {
       setVehicles(data)
     } catch (error: any) {
       toast({
-        title: "Erreur",
-        description: `Impossible de charger les véhicules: ${error.message}`,
+        title: "Error",
+        description: `Unable to load vehicles: ${error.message}`,
         variant: "destructive",
       })
     } finally {
@@ -117,14 +117,14 @@ export default function FleetPage() {
       setIsAddDialogOpen(false)
       
       toast({
-        title: "Véhicule ajouté",
-        description: `Le véhicule ${newVehicle.name} a été ajouté avec succès.`,
+        title: "Vehicle added",
+        description: `The vehicle ${newVehicle.name} has been added successfully.`,
       })
     } catch (error: any) {
       console.error('❌ Erreur création véhicule:', error)
       toast({
-        title: "Erreur",
-        description: `Impossible d'ajouter le véhicule: ${error.message}`,
+        title: "Error",
+        description: `Unable to add vehicle: ${error.message}`,
         variant: "destructive",
       })
     }
@@ -175,14 +175,14 @@ export default function FleetPage() {
       setSelectedVehicle(null)
       
       toast({
-        title: "Véhicule mis à jour",
-        description: `Le véhicule ${vehicleData.name} a été modifié avec succès.`,
+        title: "Vehicle updated",
+        description: `The vehicle ${vehicleData.name} has been modified successfully.`,
       })
     } catch (error: any) {
       console.error('❌ Erreur:', error)
       toast({
-        title: "Erreur",
-        description: `Impossible de modifier le véhicule: ${error.message}`,
+        title: "Error",
+        description: `Unable to modify vehicle: ${error.message}`,
         variant: "destructive",
       })
     }
@@ -198,40 +198,40 @@ export default function FleetPage() {
       <div className="space-y-6 p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Gestion de Flotte</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Fleet Management</h1>
             <p className="text-muted-foreground">
-              Gérez vos véhicules et vos boîtiers OBD-II connectés.
+              Manage your vehicles and connected OBD-II devices.
             </p>
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
-                <Plus className="h-4 w-4" /> Ajouter un véhicule
+                <Plus className="h-4 w-4" /> Add a vehicle
               </Button>
             </DialogTrigger>
             <DialogContent>
               <form onSubmit={handleCreateVehicle}>
                 <DialogHeader>
-                  <DialogTitle>Ajouter un nouveau véhicule</DialogTitle>
+                  <DialogTitle>Add a new vehicle</DialogTitle>
                   <DialogDescription>
-                    Entrez les informations du véhicule pour l'ajouter à votre flotte.
+                    Enter the vehicle information to add it to your fleet.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">Nom *</Label>
+                    <Label htmlFor="name" className="text-right">Name *</Label>
                     <Input id="name" name="name" placeholder="Ex: Peugeot 308" className="col-span-3" required />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="vin" className="text-right">VIN</Label>
-                    <Input id="vin" name="vin" placeholder="Numéro de série" className="col-span-3" />
+                    <Input id="vin" name="vin" placeholder="Serial number" className="col-span-3" />
                   </div>
                 </div>
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                    Annuler
+                    Cancel
                   </Button>
-                  <Button type="submit">Enregistrer</Button>
+                  <Button type="submit">Save</Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -242,14 +242,14 @@ export default function FleetPage() {
             <DialogContent>
               <form onSubmit={handleUpdateVehicle}>
                 <DialogHeader>
-                  <DialogTitle>Configurer le véhicule</DialogTitle>
+                  <DialogTitle>Configure vehicle</DialogTitle>
                   <DialogDescription>
-                    Modifiez les informations de {selectedVehicle?.name}.
+                    Modify the information of {selectedVehicle?.name}.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="edit-name" className="text-right">Nom *</Label>
+                    <Label htmlFor="edit-name" className="text-right">Name *</Label>
                     <Input 
                       id="edit-name" 
                       value={editName}
@@ -265,19 +265,19 @@ export default function FleetPage() {
                       id="edit-vin" 
                       value={editVin}
                       onChange={(e) => setEditVin(e.target.value)}
-                      placeholder="Numéro de série" 
+                      placeholder="Serial number" 
                       className="col-span-3" 
                     />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="edit-status" className="text-right">Statut</Label>
+                    <Label htmlFor="edit-status" className="text-right">Status</Label>
                     <Select value={editStatus} onValueChange={setEditStatus}>
                       <SelectTrigger className="col-span-3">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="active">Actif</SelectItem>
-                        <SelectItem value="inactive">Inactif</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
                         <SelectItem value="maintenance">Maintenance</SelectItem>
                       </SelectContent>
                     </Select>
@@ -285,9 +285,9 @@ export default function FleetPage() {
                 </div>
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                    Annuler
+                    Cancel
                   </Button>
-                  <Button type="submit">Enregistrer</Button>
+                  <Button type="submit">Save</Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -297,10 +297,10 @@ export default function FleetPage() {
         <Tabs defaultValue="vehicles" className="space-y-4">
           <TabsList>
             <TabsTrigger value="vehicles" className="gap-2">
-              <Car className="h-4 w-4" /> Véhicules
+              <Car className="h-4 w-4" /> Vehicles
             </TabsTrigger>
             <TabsTrigger value="devices" className="gap-2">
-              <Cpu className="h-4 w-4" /> Appareils OBD
+              <Cpu className="h-4 w-4" /> OBD Devices
             </TabsTrigger>
           </TabsList>
 
@@ -309,7 +309,7 @@ export default function FleetPage() {
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input 
-                  placeholder="Rechercher un véhicule..." 
+                  placeholder="Search a vehicle..." 
                   className="pl-8"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -346,14 +346,14 @@ export default function FleetPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
                           <DropdownMenuItem onClick={() => setPrimary(vehicle.id)}>
-                            <Star className="mr-2 h-4 w-4" /> Définir comme favori
+                            <Star className="mr-2 h-4 w-4" /> Set as favorite
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openEditDialog(vehicle)}>
-                            <Settings className="mr-2 h-4 w-4" /> Configurer
+                            <Settings className="mr-2 h-4 w-4" /> Configure
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-red-600">
-                            <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -361,7 +361,7 @@ export default function FleetPage() {
                     <CardContent className="pt-4">
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <p className="text-muted-foreground text-xs">Statut</p>
+                          <p className="text-muted-foreground text-xs">Status</p>
                           <Badge variant={vehicle.status === 'active' ? 'default' : 'secondary'} className="mt-1">
                             {vehicle.status || 'active'}
                           </Badge>
@@ -375,15 +375,15 @@ export default function FleetPage() {
                     <CardFooter className="bg-muted/50 p-3 flex justify-between items-center">
                       {vehicle.is_favorite ? (
                         <span className="text-xs font-medium text-primary flex items-center gap-1">
-                          <Star className="h-3 w-3 fill-primary" /> Véhicule principal
+                          <Star className="h-3 w-3 fill-primary" /> Primary vehicle
                         </span>
                       ) : (
                         <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setPrimary(vehicle.id)}>
-                          Définir comme principal
+                          Set as primary
                         </Button>
                       )}
                       <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewDashboard(vehicle)}>
-                        Voir Dashboard
+                        View Dashboard
                       </Button>
                     </CardFooter>
                   </Card>
@@ -396,15 +396,15 @@ export default function FleetPage() {
                       <div className="p-4 rounded-full bg-muted mb-3">
                         <Plus className="h-6 w-6 text-muted-foreground" />
                       </div>
-                      <p className="font-medium text-muted-foreground">Ajouter un véhicule</p>
+                      <p className="font-medium text-muted-foreground">Add a vehicle</p>
                     </Card>
                   </DialogTrigger>
                   <DialogContent>
                     <form onSubmit={handleCreateVehicle}>
                       <DialogHeader>
-                        <DialogTitle>Ajouter un nouveau véhicule</DialogTitle>
+                        <DialogTitle>Add a new vehicle</DialogTitle>
                         <DialogDescription>
-                          Entrez les informations du véhicule pour l'ajouter à votre flotte.
+                          Enter the vehicle information to add it to your fleet.
                         </DialogDescription>
                       </DialogHeader>
                       <div className="grid gap-4 py-4">

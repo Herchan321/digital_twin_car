@@ -10,8 +10,8 @@ import './globals.css'
 const geist = Geist({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: 'Digital Twin Car',
-  description: 'Plateforme de surveillance des véhicules en temps réel',
+  title: 'DriveCare',
+  description: 'Real-time vehicle monitoring platform',
 }
 
 export default function RootLayout({

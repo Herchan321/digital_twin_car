@@ -46,10 +46,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/fleet", label: "Ma Flotte", icon: Truck },
+    { href: "/fleet", label: "My Fleet", icon: Truck },
     { href: "/predictions", label: "Predictions", icon: TrendingUp },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
-    { href: "/alerts", label: "Alertes", icon: AlertTriangle },
+    { href: "/alerts", label: "Alerts", icon: AlertTriangle },
     { href: "/settings", label: "Settings", icon: Settings },
   ]
 
@@ -81,7 +81,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Car className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h1 className="font-bold text-foreground">Digital Twin</h1>
+                <h1 className="font-bold text-foreground">DriveCare</h1>
                 <p className="text-xs text-muted-foreground">Vehicle IoT</p>
               </div>
             </div>
@@ -95,14 +95,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <span className="flex items-center gap-2 truncate">
                     <Car className="h-4 w-4 text-muted-foreground" />
                     <span className="truncate">
-                      {selectedVehicle ? selectedVehicle.name : "Sélectionner un véhicule"}
+                      {selectedVehicle ? selectedVehicle.name : "Select a vehicle"}
                     </span>
                   </span>
                   <ChevronDown className="h-4 w-4 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="start">
-                <DropdownMenuLabel>Mes Véhicules</DropdownMenuLabel>
+                <DropdownMenuLabel>My Vehicles</DropdownMenuLabel>
                 {vehicles.length > 0 ? (
                   vehicles.map((vehicle) => (
                     <DropdownMenuItem
@@ -113,19 +113,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                       <Car className="h-4 w-4" />
                       <span>{vehicle.name}</span>
                       {selectedVehicle?.id === vehicle.id && (
-                        <span className="ml-auto text-xs text-green-500">Actif</span>
+                        <span className="ml-auto text-xs text-green-500">Active</span>
                       )}
                     </DropdownMenuItem>
                   ))
                 ) : (
                   <DropdownMenuItem disabled className="gap-2">
-                    <span className="text-muted-foreground">Aucun véhicule disponible</span>
+                    <span className="text-muted-foreground">No vehicle available</span>
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="gap-2 text-muted-foreground" onClick={() => router.push('/fleet')}>
                   <Plus className="h-4 w-4" />
-                  <span>Gérer la flotte</span>
+                  <span>Manage fleet</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -194,7 +194,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
            <div className="flex items-center gap-4">
              <Button variant="outline" size="sm" className="gap-2" onClick={() => router.push('/fleet')}>
                <Car className="h-4 w-4" />
-               <span className="hidden sm:inline">Gérer ma flotte</span>
+               <span className="hidden sm:inline">Manage my fleet</span>
                <Plus className="h-3 w-3 ml-1 opacity-50" />
              </Button>
            </div>

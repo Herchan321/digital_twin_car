@@ -12,10 +12,10 @@ export default function AlertsPage() {
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            Alertes Véhicule {selectedVehicle ? `- ${selectedVehicle.name}` : ''}
+            Vehicle Alerts {selectedVehicle ? `- ${selectedVehicle.name}` : ''}
           </h1>
           <p className="text-muted-foreground">
-            Surveillance et historique des alertes de sécurité et maintenance.
+            Monitoring and history of safety and maintenance alerts.
           </p>
           {selectedVehicle?.vin && (
             <p className="text-sm text-muted-foreground">VIN: {selectedVehicle.vin}</p>

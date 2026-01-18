@@ -68,8 +68,8 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
       setDevices(devicesData)
     } catch (error: any) {
       toast({
-        title: "Erreur",
-        description: `Impossible de charger les données: ${error.message}`,
+        title: "Error",
+        description: `Unable to load data: ${error.message}`,
         variant: "destructive",
       })
     } finally {
@@ -115,15 +115,15 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
       onRefresh?.()
 
       toast({
-        title: "Association créée",
+        title: "Association created",
         description: existingAssignment 
-          ? `Le device a été associé au véhicule. L'ancien device "${existingAssignment.device_code}" a été débranché.`
-          : "Le device a été associé au véhicule avec succès.",
+          ? `The device has been associated with the vehicle. The old device "${existingAssignment.device_code}" has been disconnected.`
+          : "The device has been successfully associated with the vehicle.",
       })
     } catch (error: any) {
       toast({
-        title: "Erreur",
-        description: `Erreur lors de l'association: ${error.message}`,
+        title: "Error",
+        description: `Error during association: ${error.message}`,
         variant: "destructive",
       })
     }
@@ -141,7 +141,7 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
   }
 
   const handleDeactivateAssignment = async (assignment: ActiveDeviceAssignment) => {
-    if (!confirm(`Êtes-vous sûr de vouloir débrancher le device ${assignment.device_code} du véhicule ${assignment.vehicle_name} ?`)) {
+    if (!confirm(`Are you sure you want to disconnect device ${assignment.device_code} from vehicle ${assignment.vehicle_name}?`)) {
       return
     }
 
@@ -151,13 +151,13 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
       onRefresh?.()
 
       toast({
-        title: "Device débranché",
-        description: `Le device ${assignment.device_code} a été débranché.`,
+        title: "Device disconnected",
+        description: `The device ${assignment.device_code} has been disconnected.`,
       })
     } catch (error: any) {
       toast({
-        title: "Erreur",
-        description: `Erreur lors du débranchement: ${error.message}`,
+        title: "Error",
+        description: `Error during disconnection: ${error.message}`,
         variant: "destructive",
       })
     }
@@ -170,8 +170,8 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
       setHistoryDialogOpen(true)
     } catch (error: any) {
       toast({
-        title: "Erreur",
-        description: `Impossible de charger l'historique: ${error.message}`,
+        title: "Error",
+        description: `Unable to load history: ${error.message}`,
         variant: "destructive",
       })
     }
@@ -199,24 +199,24 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
         <CardHeader>
           <div className="flex justify-between items-center">
             <div>
-              <CardTitle>Associations Actives</CardTitle>
+              <CardTitle>Active Associations</CardTitle>
               <CardDescription>
-                {assignments.length} device(s) actuellement branché(s)
+                {assignments.length} device(s) currently connected
               </CardDescription>
             </div>
             <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
               <DialogTrigger asChild>
                 <Button disabled={unassignedDevices.length === 0 || vehicles.length === 0}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Associer device
+                  Associate device
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <form onSubmit={handleCreateAssignment}>
                   <DialogHeader>
-                    <DialogTitle>Associer un device à un véhicule</DialogTitle>
+                    <DialogTitle>Associate a device with a vehicle</DialogTitle>
                     <DialogDescription>
-                      Branchez un device OBD-II sur un véhicule. L'ancien assignment sera automatiquement désactivé.
+                      Connect an OBD-II device to a vehicle. The old assignment will be automatically deactivated.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
@@ -224,7 +224,7 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
                       <Label htmlFor="device_id">Device *</Label>
                       <Select name="device_id" required>
                         <SelectTrigger>
-                          <SelectValue placeholder="Sélectionner un device" />
+                          <SelectValue placeholder="Select a device" />
                         </SelectTrigger>
                         <SelectContent>
                           {unassignedDevices.map((device) => (
@@ -236,10 +236,10 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
                       </Select>
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="vehicle_id">Véhicule *</Label>
+                      <Label htmlFor="vehicle_id">Vehicle *</Label>
                       <Select name="vehicle_id" required>
                         <SelectTrigger>
-                          <SelectValue placeholder="Sélectionner un véhicule" />
+                          <SelectValue placeholder="Select a vehicle" />
                         </SelectTrigger>
                         <SelectContent>
                           {vehicles.map((vehicle) => (
@@ -251,11 +251,11 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
                       </Select>
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="notes">Notes (optionnel)</Label>
+                      <Label htmlFor="notes">Notes (optional)</Label>
                       <textarea
                         id="notes"
                         name="notes"
-                        placeholder="Ex: Transféré depuis véhicule X"
+                        placeholder="Ex: Transferred from vehicle X"
                         rows={3}
                         className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       />
@@ -263,9 +263,9 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
                   </div>
                   <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setIsAssignDialogOpen(false)}>
-                      Annuler
+                      Cancel
                     </Button>
-                    <Button type="submit">Associer</Button>
+                    <Button type="submit">Associate</Button>
                   </DialogFooter>
                 </form>
               </DialogContent>
@@ -276,14 +276,14 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
           {assignments.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-center">
               <AlertCircle className="h-10 w-10 text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">Aucune association active</p>
+              <p className="text-muted-foreground">No active association</p>
               <Button
                 variant="link"
                 onClick={() => setIsAssignDialogOpen(true)}
                 disabled={unassignedDevices.length === 0 || vehicles.length === 0}
                 className="mt-2"
               >
-                Créer une association
+                Create an association
               </Button>
             </div>
           ) : (
@@ -321,9 +321,9 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
 
                   <div className="flex items-center gap-2">
                     <div className="text-right mr-4">
-                      <Badge variant="default" className="bg-green-500">Actif</Badge>
+                      <Badge variant="default" className="bg-green-500">Active</Badge>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Depuis {format(new Date(assignment.assigned_at), "dd MMM yyyy", { locale: fr })}
+                        Since {format(new Date(assignment.assigned_at), "dd MMM yyyy", { locale: fr })}
                       </p>
                     </div>
                     
@@ -331,7 +331,7 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
                       variant="ghost"
                       size="icon"
                       onClick={() => showDeviceHistory(assignment.device_id)}
-                      title="Voir l'historique"
+                      title="View history"
                     >
                       <History className="h-4 w-4" />
                     </Button>
@@ -340,7 +340,7 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDeactivateAssignment(assignment)}
-                      title="Débrancher"
+                      title="Disconnect"
                       className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
                     >
                       <Unlink className="h-4 w-4" />
@@ -357,9 +357,9 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
       {unassignedDevices.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Devices Disponibles</CardTitle>
+            <CardTitle>Available Devices</CardTitle>
             <CardDescription>
-              {unassignedDevices.length} device(s) non assigné(s)
+              {unassignedDevices.length} device(s) not assigned
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -376,7 +376,7 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
                     <p className="font-semibold">{device.device_code}</p>
                     <p className="text-xs text-muted-foreground font-mono">{device.mqtt_topic}</p>
                   </div>
-                  <Badge variant="secondary">Disponible</Badge>
+                  <Badge variant="secondary">Available</Badge>
                 </div>
               ))}
             </div>
@@ -388,9 +388,9 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
       <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Historique des branchements</DialogTitle>
+            <DialogTitle>Connection history</DialogTitle>
             <DialogDescription>
-              Historique des associations du device
+              Device association history
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -437,19 +437,19 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
               <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-full">
                 <AlertCircle className="h-6 w-6 text-orange-600 dark:text-orange-400" />
               </div>
-              <DialogTitle className="text-xl">Attention!</DialogTitle>
+              <DialogTitle className="text-xl">Warning!</DialogTitle>
             </div>
             <DialogDescription className="text-base space-y-3 pt-2">
               {pendingAssignment?.existingAssignment && (
                 <>
                   <p>
-                    Le véhicule <span className="font-semibold text-foreground">"{pendingAssignment.existingAssignment.vehicle_name}"</span> a déjà le device <span className="font-semibold text-foreground">"{pendingAssignment.existingAssignment.device_code}"</span> branché.
+                    The vehicle <span className="font-semibold text-foreground">"{pendingAssignment.existingAssignment.vehicle_name}"</span> already has the device <span className="font-semibold text-foreground">"{pendingAssignment.existingAssignment.device_code}"</span> connected.
                   </p>
                   <p className="text-orange-600 dark:text-orange-400 font-medium">
-                    Si vous continuez, l'ancien device sera automatiquement débranché et remplacé par le nouveau.
+                    If you continue, the old device will be automatically disconnected and replaced with the new one.
                   </p>
                   <p className="text-sm">
-                    Voulez-vous continuer?
+                    Do you want to continue?
                   </p>
                 </>
               )}
@@ -464,14 +464,14 @@ export function AssignmentManager({ vehicles, onRefresh }: AssignmentManagerProp
                 setPendingAssignment(null)
               }}
             >
-              Annuler
+              Cancel
             </Button>
             <Button
               type="button"
               onClick={handleConfirmAssignment}
               className="bg-orange-600 hover:bg-orange-700"
             >
-              Oui, continuer
+              Yes, continue
             </Button>
           </DialogFooter>
         </DialogContent>
