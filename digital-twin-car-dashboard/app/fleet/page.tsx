@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { 
   Car, Plus, Settings, Trash2, Smartphone, 
   CheckCircle2, Star, MoreVertical, Search,
-  Cpu, Activity, Link2
+  Cpu, Activity, Link2, AlertTriangle
 } from "lucide-react"
 import {
   Dialog,
@@ -44,6 +44,8 @@ export default function FleetPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null)
   
   // Using vehicle context
   const { setSelectedVehicle: setContextSelectedVehicle } = useVehicle()
@@ -81,19 +83,114 @@ export default function FleetPage() {
   }
 
   const toggleFavorite = async (id: number) => {
-    // TODO: Implement API call to toggle favorite
-    setVehicles(vehicles.map(v => ({
-      ...v,
-      is_favorite: v.id === id ? !v.is_favorite : v.is_favorite
-    })))
+    try {
+      const vehicle = vehicles.find(v => v.id === id)
+      if (!vehicle) return
+
+      const { error } = await supabase
+        .from('vehicles')
+        .update({ is_favorite: !vehicle.is_favorite })
+        .eq('id', id)
+
+      if (error) throw error
+
+      await loadVehicles()
+      toast({
+        title: "Updated",
+        description: `Vehicle ${vehicle.is_favorite ? 'removed from' : 'set as'} favorite.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: `Unable to update favorite status: ${error.message}`,
+        variant: "destructive",
+      })
+    }
   }
 
   const setPrimary = async (id: number) => {
-    // TODO: Implement API call to set primary vehicle
-    setVehicles(vehicles.map(v => ({
-      ...v,
-      is_favorite: v.id === id
-    })))
+    try {
+      // First, set all vehicles to non-favorite
+      await supabase
+        .from('vehicles')
+        .update({ is_favorite: false })
+        .neq('id', 0) // Update all vehicles
+
+      // Then set the selected one as favorite
+      const { error } = await supabase
+        .from('vehicles')
+        .update({ is_favorite: true })
+        .eq('id', id)
+
+      if (error) throw error
+
+      await loadVehicles()
+      
+      const vehicle = vehicles.find(v => v.id === id)
+      toast({
+        title: "Primary vehicle",
+        description: `${vehicle?.name} has been set as primary vehicle.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: `Unable to set primary vehicle: ${error.message}`,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const openDeleteDialog = (vehicle: Vehicle) => {
+    setVehicleToDelete(vehicle)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const handleDeleteVehicle = async () => {
+    if (!vehicleToDelete) return
+
+    try {
+      const id = vehicleToDelete.id
+      // First, check if vehicle has active assignments
+      const { data: assignments } = await supabase
+        .from('device_vehicle_assignments')
+        .select('*')
+        .eq('vehicle_id', id)
+        .eq('is_active', true)
+
+      if (assignments && assignments.length > 0) {
+        toast({
+          title: "Cannot delete",
+          description: "This vehicle has active device associations. Please disconnect them first.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Delete the vehicle
+      const { error } = await supabase
+        .from('vehicles')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      await loadVehicles()
+      setIsDeleteDialogOpen(false)
+      setVehicleToDelete(null)
+      
+      toast({
+        title: "Vehicle deleted",
+        description: `${vehicleToDelete.name} has been successfully removed from your fleet.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: `Unable to delete vehicle: ${error.message}`,
+        variant: "destructive",
+      })
+      setIsDeleteDialogOpen(false)
+      setVehicleToDelete(null)
+    }
   }
   const handleCreateVehicle = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -352,7 +449,10 @@ export default function FleetPage() {
                             <Settings className="mr-2 h-4 w-4" /> Configure
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600">
+                          <DropdownMenuItem 
+                            className="text-red-600"
+                            onClick={() => openDeleteDialog(vehicle)}
+                          >
                             <Trash2 className="mr-2 h-4 w-4" /> Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -438,6 +538,49 @@ export default function FleetPage() {
             <AssignmentManager vehicles={vehicles} onRefresh={loadVehicles} />
           </TabsContent>
         </Tabs>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <Trash2 className="h-5 w-5" />
+                Delete Vehicle
+              </DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete the vehicle <strong>{vehicleToDelete?.name}</strong>?
+                This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 my-4">
+              <p className="text-sm text-amber-700 dark:text-amber-500 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                All data associated with this vehicle will be permanently deleted.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setIsDeleteDialogOpen(false)
+                  setVehicleToDelete(null)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="button" 
+                variant="destructive" 
+                onClick={handleDeleteVehicle}
+                className="gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Vehicle
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   )

@@ -44,6 +44,8 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [deviceToDelete, setDeviceToDelete] = useState<Device | null>(null)
   const { toast } = useToast()
 
   // Charger les devices au montage
@@ -124,25 +126,32 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
     }
   }
 
-  const handleDeleteDevice = async (device: Device) => {
-    if (!confirm(`Êtes-vous sûr de vouloir supprimer le device ${device.device_code} ?`)) {
-      return
-    }
+  const openDeleteDialog = (device: Device) => {
+    setDeviceToDelete(device)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const handleDeleteDevice = async () => {
+    if (!deviceToDelete) return
 
     try {
-      await deleteDevice(device.id)
-      setDevices(devices.filter(d => d.id !== device.id))
+      await deleteDevice(deviceToDelete.id)
+      setDevices(devices.filter(d => d.id !== deviceToDelete.id))
+      setIsDeleteDialogOpen(false)
+      setDeviceToDelete(null)
 
       toast({
-        title: "Device supprimé",
-        description: `Le device ${device.device_code} a été supprimé.`,
+        title: "Device deleted",
+        description: `The device ${deviceToDelete.device_code} has been deleted successfully.`,
       })
     } catch (error: any) {
       toast({
-        title: "Erreur",
-        description: `Erreur lors de la suppression: ${error.message}`,
+        title: "Error",
+        description: `Error during deletion: ${error.message}`,
         variant: "destructive",
       })
+      setIsDeleteDialogOpen(false)
+      setDeviceToDelete(null)
     }
   }
 
@@ -317,7 +326,7 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
                       )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        onClick={() => handleDeleteDevice(device)}
+                        onClick={() => openDeleteDialog(device)}
                         className="text-red-600"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
@@ -393,6 +402,49 @@ export function DeviceManager({ onDeviceSelect }: DeviceManagerProps) {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Delete Device
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the device <strong>{deviceToDelete?.device_code}</strong>?
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 my-4">
+            <p className="text-sm text-amber-700 dark:text-amber-500 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              All data associated with this device will be permanently deleted.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                setIsDeleteDialogOpen(false)
+                setDeviceToDelete(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="button" 
+              variant="destructive" 
+              onClick={handleDeleteDevice}
+              className="gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Device
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
