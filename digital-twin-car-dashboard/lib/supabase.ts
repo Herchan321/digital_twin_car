@@ -374,6 +374,57 @@ export const createAssignment = async (assignment: {
   is_active?: boolean
   notes?: string
 }): Promise<VehicleDeviceAssignment> => {
+  // 1. Vérifier s'il existe déjà une assignation active pour ce véhicule
+  const { data: existingVehicleAssignment, error: checkVehicleError } = await supabase
+    .from('vehicle_device_assignment')
+    .select('id, device_id')
+    .eq('vehicle_id', assignment.vehicle_id)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (checkVehicleError) throw checkVehicleError
+
+  // 2. Si une assignation active existe pour ce véhicule, la désactiver d'abord
+  if (existingVehicleAssignment) {
+    const { error: deactivateVehicleError } = await supabase
+      .from('vehicle_device_assignment')
+      .update({
+        is_active: false,
+        unassigned_at: new Date().toISOString()
+      })
+      .eq('id', existingVehicleAssignment.id)
+
+    if (deactivateVehicleError) throw deactivateVehicleError
+    
+    console.log(`✅ Ancienne assignation désactivée pour le véhicule ${assignment.vehicle_id}`)
+  }
+
+  // 3. Vérifier s'il existe déjà une assignation active pour ce device
+  const { data: existingDeviceAssignment, error: checkDeviceError } = await supabase
+    .from('vehicle_device_assignment')
+    .select('id, vehicle_id')
+    .eq('device_id', assignment.device_id)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (checkDeviceError) throw checkDeviceError
+
+  // 4. Si une assignation active existe pour ce device, la désactiver
+  if (existingDeviceAssignment) {
+    const { error: deactivateDeviceError } = await supabase
+      .from('vehicle_device_assignment')
+      .update({
+        is_active: false,
+        unassigned_at: new Date().toISOString()
+      })
+      .eq('id', existingDeviceAssignment.id)
+
+    if (deactivateDeviceError) throw deactivateDeviceError
+    
+    console.log(`✅ Ancienne assignation désactivée pour le device ${assignment.device_id}`)
+  }
+
+  // 5. Créer la nouvelle assignation
   const { data, error } = await supabase
     .from('vehicle_device_assignment')
     .insert([{ ...assignment, is_active: assignment.is_active ?? true }])
@@ -381,6 +432,8 @@ export const createAssignment = async (assignment: {
     .single()
 
   if (error) throw error
+  
+  console.log(`✅ Nouvelle assignation créée: device ${assignment.device_id} → véhicule ${assignment.vehicle_id}`)
   return data as VehicleDeviceAssignment
 }
 
