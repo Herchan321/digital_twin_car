@@ -194,10 +194,10 @@ export function AlertsDashboard() {
 
   // Statistiques
   const stats = {
-    total: MOCK_ALERTS.length,
-    critical: MOCK_ALERTS.filter(a => a.severity === "critical" && a.status === "active").length,
-    warning: MOCK_ALERTS.filter(a => a.severity === "warning" && a.status === "active").length,
-    resolved: MOCK_ALERTS.filter(a => a.status === "resolved").length
+    total: alerts.length,
+    critical: alerts.filter(a => a.severity === "critical" && a.status === "active").length,
+    warning: alerts.filter(a => a.severity === "warning" && a.status === "active").length,
+    resolved: alerts.filter(a => a.status === "resolved").length
   }
 
   const getSeverityColor = (severity: AlertSeverity) => {
